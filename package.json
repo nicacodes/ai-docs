@@ -1,0 +1,29 @@
+{
+  "name": "ai-editor",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@astrojs/node": "^9.5.1",
+    "@huggingface/transformers": "^3.8.1",
+    "@milkdown/crepe": "^7.17.3",
+    "@milkdown/kit": "^7.17.3",
+    "@tailwindcss/vite": "^4.1.18",
+    "astro": "^5.16.6",
+    "drizzle-orm": "^0.45.1",
+    "postgres": "^3.4.7",
+    "tailwindcss": "^4.1.18"
+  },
+  "devDependencies": {
+    "dotenv": "^17.2.3",
+    "drizzle-kit": "^0.31.8"
+  }
+}

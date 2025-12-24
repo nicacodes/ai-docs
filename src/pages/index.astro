@@ -1,0 +1,190 @@
+---
+import { Font } from 'astro:assets';
+import '@milkdown/crepe/theme/common/style.css';
+import '@milkdown/crepe/theme/frame.css';
+import '../styles/global.css';
+
+export const prerender = false;
+---
+
+<html lang='es'>
+  <head>
+    <meta charset='utf-8' />
+    <link rel='icon' type='image/svg+xml' href='/favicon.svg' />
+    <meta name='viewport' content='width=device-width' />
+    <meta name='generator' content={Astro.generator} />
+    <Font cssVariable='--font-inter' preload />
+    <title>AI blog</title>
+  </head>
+  <body>
+    <div class='flex justify-center min-h-screen bg-white'>
+      <div class='min-w-230 p-9 bg-white'>
+        <div class='flex items-center gap-3 mb-4'>
+          <button id='save-btn' class='px-3 py-2 border rounded'>Guardar</button
+          >
+          <div id='save-status' class='text-sm text-gray-600'></div>
+        </div>
+        <div id='app'></div>
+      </div>
+    </div>
+  </body>
+</html>
+
+<script>
+  import { Crepe } from '@milkdown/crepe';
+  import { actions } from 'astro:actions';
+  import type { EmbeddingModelConfig } from '../scripts/ai-embeddings';
+  import {
+    clearAllEmbeddingsCaches,
+    embedPost,
+    ensureSwReady,
+    initEmbeddingModel,
+    swStatus,
+  } from '../scripts/ai-embeddings';
+
+  const MODEL: EmbeddingModelConfig = {
+    modelId: 'Xenova/multilingual-e5-large',
+    device: 'wasm',
+  };
+  const STORAGE_KEY = 'ai-editor:current-document';
+
+  function inferTitle(md: string | null): string {
+    const lines = String(md || '').split(/\r?\n/);
+    for (const line of lines) {
+      const m = /^\s*#\s+(.+)\s*$/.exec(line);
+      if (m?.[1]) return m[1].trim().slice(0, 120);
+    }
+    for (const line of lines) {
+      const t = line.trim();
+      if (t) return t.slice(0, 120);
+    }
+    return 'Sin título';
+  }
+
+  function loadCurrentDoc() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      const id = parsed.id;
+      const slug = parsed.slug;
+      if (typeof id !== 'string' || typeof slug !== 'string') return null;
+      if (!id || !slug) return null;
+      return { id, slug };
+    } catch {
+      return null;
+    }
+  }
+
+  function saveCurrentDoc(doc: { id: string; slug: string }) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
+  }
+
+  const crepe = new Crepe({
+    root: '#app',
+    defaultValue: '#',
+    featureConfigs: {
+      placeholder: {
+        text: 'Nueva pagina',
+        mode: 'block',
+      },
+    },
+  });
+
+  crepe.create().then(() => {
+    console.log('Editor created');
+  });
+
+  crepe.setReadonly(false);
+
+  (async () => {
+    try {
+      await ensureSwReady();
+      console.log('Service Worker listo para embeddings');
+
+      // API mínima para probar desde DevTools:
+      // await window.aiEmbeddings.init({ device: 'wasm' })
+      // await window.aiEmbeddings.embedPost({ postId: 'demo', text: 'passage: hola mundo' })
+      window.aiEmbeddings = {
+        init: initEmbeddingModel,
+        embedPost,
+        status: swStatus,
+        clearCaches: clearAllEmbeddingsCaches,
+      };
+    } catch (e) {
+      console.warn('No se pudo inicializar Service Worker de embeddings:', e);
+    }
+  })();
+
+  const saveBtn = document.querySelector(
+    '#save-btn',
+  ) as HTMLButtonElement | null;
+  const saveStatus = document.querySelector('#save-status');
+
+  saveBtn?.addEventListener('click', async () => {
+    if (!saveBtn || !saveStatus) return;
+
+    saveBtn.disabled = true;
+    saveStatus.textContent = 'Guardando…';
+
+    try {
+      const rawMarkdown = await crepe.getMarkdown();
+      const title = inferTitle(rawMarkdown);
+      const current = loadCurrentDoc();
+
+      const { data: saved, error: saveError } = await actions.documents.save({
+        id: current?.id,
+        slug: current?.slug,
+        title,
+        rawMarkdown,
+        metadata: {},
+      });
+
+      if (saveError) {
+        console.error(saveError);
+        saveStatus.textContent = 'Error guardando documento.';
+        return;
+      }
+
+      saveCurrentDoc({ id: saved.id, slug: saved.slug });
+
+      // Embedding (1 chunk, todo el documento)
+      const embeddingText = `passage: ${rawMarkdown}`;
+      const embedding = await embedPost({
+        postId: saved.id,
+        text: embeddingText,
+        model: MODEL,
+      });
+
+      const { error: embError } = await actions.documents.upsertEmbeddings({
+        documentId: saved.id,
+        items: [
+          {
+            chunkIndex: 0,
+            chunkText: rawMarkdown,
+            embedding,
+            modelId: MODEL.modelId,
+            device: MODEL.device,
+            pooling: 'mean',
+            normalize: true,
+          },
+        ],
+      });
+
+      if (embError) {
+        console.error(embError);
+        saveStatus.textContent =
+          'Documento guardado; error guardando embedding.';
+        return;
+      }
+
+      saveStatus.textContent = 'Guardado.';
+    } catch (e) {
+      console.error(e);
+      saveStatus.textContent = 'Error inesperado al guardar.';
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+</script>
