@@ -1,6 +1,7 @@
 export type StoredEmbedding = {
   key: string;
-  postId: string;
+  // metadata (no participa en la key)
+  postId?: string;
   modelId: string;
   device: string;
   pooling: 'mean';
@@ -11,7 +12,8 @@ export type StoredEmbedding = {
 };
 
 const DB_NAME = 'ai-editor';
-const DB_VERSION = 1;
+// v2: la key deja de depender de postId (cache por contenido+modelo)
+const DB_VERSION = 2;
 const STORE = 'embeddings';
 
 function fnv1a32(str: string) {
@@ -34,9 +36,11 @@ function openDb(): Promise<IDBDatabase> {
 
     req.onupgradeneeded = () => {
       const db = req.result;
-      if (!db.objectStoreNames.contains(STORE)) {
-        db.createObjectStore(STORE, { keyPath: 'key' });
+      // Si cambiamos el formato de la key, limpiamos el store para evitar crecer sin uso.
+      if (db.objectStoreNames.contains(STORE)) {
+        db.deleteObjectStore(STORE);
       }
+      db.createObjectStore(STORE, { keyPath: 'key' });
     };
 
     req.onsuccess = () => resolve(req.result);
@@ -46,16 +50,14 @@ function openDb(): Promise<IDBDatabase> {
 }
 
 export function makeEmbeddingKey(args: {
-  postId: string;
   modelId: string;
   device: string;
   pooling: 'mean';
   normalize: true;
   contentHash: string;
 }) {
-  // Si cambia el texto, cambia la key y se recalcula.
+  // Cache por contenido+modelo+config. Si cambia el texto, cambia el hash y se recalcula.
   return [
-    args.postId,
     args.modelId,
     args.device,
     args.pooling,
@@ -65,7 +67,6 @@ export function makeEmbeddingKey(args: {
 }
 
 export function computeEmbeddingIdentity(args: {
-  postId: string;
   modelId: string;
   device: string;
   pooling?: 'mean';
@@ -76,7 +77,6 @@ export function computeEmbeddingIdentity(args: {
   const normalize: true = true;
   const h = contentHash(args.text);
   const key = makeEmbeddingKey({
-    postId: args.postId,
     modelId: args.modelId,
     device: args.device,
     pooling,
@@ -88,7 +88,6 @@ export function computeEmbeddingIdentity(args: {
 }
 
 export async function getStoredEmbedding(args: {
-  postId: string;
   modelId: string;
   device: string;
   pooling?: 'mean';

@@ -60,9 +60,8 @@ export async function embedPost(args: EmbedPostArgs): Promise<number[]> {
     device: args.model?.device ?? DEFAULT_MODEL.device,
   };
 
-  // 1) cache local por postId + hash del contenido
+  // 1) cache local por hash del contenido + modelo (no depende de postId)
   const cached = await getStoredEmbedding({
-    postId: args.postId,
     modelId: cfg.modelId,
     device: cfg.device,
     text: args.text,
@@ -89,7 +88,6 @@ export async function embedPost(args: EmbedPostArgs): Promise<number[]> {
 
   // 3) persistir
   const ident = computeEmbeddingIdentity({
-    postId: args.postId,
     modelId: cfg.modelId,
     device: cfg.device,
     text: args.text,

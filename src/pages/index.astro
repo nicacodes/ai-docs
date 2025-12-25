@@ -3,6 +3,7 @@ import { Font } from 'astro:assets';
 import '@milkdown/crepe/theme/common/style.css';
 import '@milkdown/crepe/theme/frame.css';
 import '../styles/global.css';
+import { Button } from '@/components/ui/button';
 
 export const prerender = false;
 ---
@@ -20,8 +21,7 @@ export const prerender = false;
     <div class='flex justify-center min-h-screen bg-white'>
       <div class='min-w-230 p-9 bg-white'>
         <div class='flex items-center gap-3 mb-4'>
-          <button id='save-btn' class='px-3 py-2 border rounded'>Guardar</button
-          >
+          <Button id='save-btn' variant='outline' client:load>Guardar</Button>
           <div id='save-status' class='text-sm text-gray-600'></div>
         </div>
 
@@ -52,7 +52,6 @@ export const prerender = false;
 <script>
   import { Crepe } from '@milkdown/crepe';
   import { actions } from 'astro:actions';
-  import type { EmbeddingModelConfig } from '../scripts/ai-embeddings';
   import {
     clearAllEmbeddingsCaches,
     embedPost,
@@ -61,13 +60,11 @@ export const prerender = false;
     swStatus,
   } from '../scripts/ai-embeddings';
 
-  const MODEL: EmbeddingModelConfig = {
+  const MODEL = {
     modelId: 'Xenova/multilingual-e5-large',
     device: 'wasm',
-  };
-  const STORAGE_KEY = 'ai-editor:current-document';
-
-  function inferTitle(md: string | null): string {
+  } as const;
+  function inferTitle(md: string): string {
     const lines = String(md || '').split(/\r?\n/);
     for (const line of lines) {
       const m = /^\s*#\s+(.+)\s*$/.exec(line);
@@ -80,25 +77,8 @@ export const prerender = false;
     return 'Sin título';
   }
 
-  function loadCurrentDoc() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== 'object') return null;
-      const id = parsed.id;
-      const slug = parsed.slug;
-      if (typeof id !== 'string' || typeof slug !== 'string') return null;
-      if (!id || !slug) return null;
-      return { id, slug };
-    } catch {
-      return null;
-    }
-  }
-
-  function saveCurrentDoc(doc: { id: string; slug: string }) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
-  }
+  // Nota: Guardar SIEMPRE crea un post nuevo.
+  // Por eso no guardamos/recuperamos el documento actual en localStorage.
 
   const crepe = new Crepe({
     root: '#app',
@@ -120,23 +100,21 @@ export const prerender = false;
   const saveBtn = document.querySelector(
     '#save-btn',
   ) as HTMLButtonElement | null;
+  /** @type {HTMLElement|null} */
   const saveStatus = document.querySelector('#save-status');
-  const progressBox = document.querySelector(
-    '#progress',
-  ) as HTMLDivElement | null;
-  const progressLabel = document.querySelector(
-    '#progress-label',
-  ) as HTMLSpanElement | null;
-  const progressValue = document.querySelector(
-    '#progress-value',
-  ) as HTMLSpanElement | null;
-  const progressBar = document.querySelector(
-    '#progress-bar',
-  ) as HTMLDivElement | null;
+  /** @type {HTMLDivElement|null} */
+  const progressBox = document.querySelector('#progress');
+  /** @type {HTMLSpanElement|null} */
+  const progressLabel = document.querySelector('#progress-label');
+  /** @type {HTMLSpanElement|null} */
+  const progressValue = document.querySelector('#progress-value');
+  /** @type {HTMLDivElement|null} */
+  const progressBar = document.querySelector('#progress-bar') as HTMLDivElement;
+  /** @type {number|null} */
   let hideProgressTimer: number | null = null;
 
   const renderProgress = (
-    state: { label: string; percent: number | null } | null,
+    state: { label?: string; percent?: number | null } | null,
   ) => {
     if (!progressBox || !progressLabel || !progressValue || !progressBar)
       return;
@@ -165,7 +143,7 @@ export const prerender = false;
       return;
     }
 
-    const pct = Math.max(0, Math.min(100, Math.round(state.percent)));
+    const pct = Math.max(0, Math.min(100, Math.round(state.percent || 0)));
     progressValue.textContent = `${pct}%`;
     progressBar.style.width = `${pct}%`;
     progressBar.style.opacity = '1';
@@ -211,8 +189,8 @@ export const prerender = false;
     };
   };
 
-  const handleProgress = (payload: unknown) => {
-    const next = normalizeProgressPayload(payload as any);
+  const handleProgress = (payload: any) => {
+    const next = normalizeProgressPayload(payload);
     if (next) renderProgress(next);
   };
 
@@ -250,11 +228,8 @@ export const prerender = false;
     try {
       const rawMarkdown = await crepe.getMarkdown();
       const title = inferTitle(rawMarkdown);
-      const current = loadCurrentDoc();
-
       const { data: saved, error: saveError } = await actions.documents.save({
-        id: current?.id,
-        slug: current?.slug,
+        // Nuevo siempre: no enviar id/slug
         title,
         rawMarkdown,
         metadata: {},
@@ -265,9 +240,6 @@ export const prerender = false;
         saveStatus.textContent = 'Error guardando documento.';
         return;
       }
-
-      saveCurrentDoc({ id: saved.id, slug: saved.slug });
-
       // Embedding (1 chunk, todo el documento)
       const embeddingText = `passage: ${rawMarkdown}`;
       const embedding = await embedPost({
