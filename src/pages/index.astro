@@ -25,6 +25,7 @@ export const prerender = false;
 
 <script>
   import { Crepe } from '@milkdown/crepe';
+  import {replaceAll} from '@milkdown/kit/utils'
   import { actions } from 'astro:actions';
   import {
     resetEmbeddingProgress,
@@ -112,12 +113,15 @@ export const prerender = false;
     '#import-md-input',
   ) as HTMLInputElement | null;
 
-  const setEditorMarkdown = async (md: string) => {
-    const api = crepe as any;
-    if (typeof api.setMarkdown === 'function') return api.setMarkdown(md);
-    if (typeof api.setValue === 'function') return api.setValue(md);
-    console.warn('Crepe no expone setMarkdown/setValue; no se pudo importar.');
+  const setEditorMarkdown = async (md: string = "#") => {
+    crepe.editor.action(replaceAll(md));
   };
+
+  crepe.on((api) => {
+  api.updated((ctx) => {
+    console.log('Editor updated');
+  })
+})
 
   importMdInput?.addEventListener('change', async () => {
     const file = importMdInput.files?.[0];
