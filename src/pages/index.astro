@@ -50,6 +50,7 @@ export const prerender = false;
     modelId: 'Xenova/multilingual-e5-large',
     device: 'wasm',
   } as const;
+  const STORAGE_KEY = 'ai-editor:current-document';
   function inferTitle(md: string): string {
     const lines = String(md || '').split(/\r?\n/);
     for (const line of lines) {
@@ -63,8 +64,30 @@ export const prerender = false;
     return 'Sin título';
   }
 
-  // Nota: Guardar SIEMPRE crea un post nuevo.
-  // Por eso no guardamos/recuperamos el documento actual en localStorage.
+  // Guardar actualiza el mismo documento hasta que el usuario presione "Nuevo".
+  function loadCurrentDoc() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      const id = parsed.id;
+      const slug = parsed.slug;
+      if (typeof id !== 'string' || typeof slug !== 'string') return null;
+      if (!id || !slug) return null;
+      return { id, slug } as const;
+    } catch {
+      return null;
+    }
+  }
+
+  function saveCurrentDoc(doc: { id: string; slug: string }) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
+  }
+
+  function clearCurrentDoc() {
+    localStorage.removeItem(STORAGE_KEY);
+  }
 
   const crepe = new Crepe({
     root: '#app',
@@ -82,6 +105,8 @@ export const prerender = false;
   });
 
   crepe.setReadonly(false);
+
+  let currentDoc = loadCurrentDoc();
 
   const importMdInput = document.querySelector(
     '#import-md-input',
@@ -185,12 +210,26 @@ export const prerender = false;
       setLastMarkdownSnapshot(rawMarkdown);
       const title = inferTitle(rawMarkdown);
 
-      const { data: saved, error: saveError } = await actions.documents.save({
-        // Nuevo siempre: no enviar id/slug
-        title,
-        rawMarkdown,
-        metadata: {},
-      });
+      const performSave = async (retry?: boolean) => {
+        const res = await actions.documents.save({
+          id: currentDoc?.id || undefined,
+          slug: currentDoc?.slug || undefined,
+          title,
+          rawMarkdown,
+          metadata: {},
+        });
+
+        // Si el doc apuntado por id/slug no existe, limpiar estado y reintentar insert una vez
+        const notFound = res.error?.code === 'NOT_FOUND' || /no encontrado/i.test(res.error?.message || '');
+        if (!res.data && notFound && currentDoc && !retry) {
+          currentDoc = null;
+          clearCurrentDoc();
+          return await performSave(true);
+        }
+        return res;
+      };
+
+      const { data: saved, error: saveError } = await performSave();
 
       if (saveError) {
         console.error(saveError);
@@ -235,6 +274,9 @@ export const prerender = false;
         return;
       }
 
+      currentDoc = { id: saved.id, slug: saved.slug };
+      saveCurrentDoc(currentDoc);
+
       setSaveSuccess('Guardado.');
       resetEmbeddingProgress();
       window.setTimeout(() => {
@@ -260,6 +302,20 @@ export const prerender = false;
     e.preventDefault();
     void dispatchSave();
   });
+
+  window.addEventListener('editor:new', () => {
+    void resetEditorToNew();
+  });
+
+  const resetEditorToNew = async () => {
+    currentDoc = null;
+    clearCurrentDoc();
+    await setEditorMarkdown('#');
+    setLastMarkdownSnapshot('#');
+    resetEmbeddingProgress();
+    setSaveSuccess('Nuevo documento listo');
+    window.setTimeout(() => resetSaveStatus(), 1200);
+  };
 
   const downloadTextFile = (
     filename: string,

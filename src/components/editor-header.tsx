@@ -1,10 +1,10 @@
 import {
   Ban,
   Command,
-  IdCard,
   LoaderCircle,
   FileText,
   FolderUp,
+  Plus,
 } from 'lucide-react';
 import { motion, type Variants, type Transition } from 'motion/react';
 import { useMemo, useSyncExternalStore } from 'react';
@@ -23,9 +23,9 @@ const BUTTON_MOTION_CONFIG = {
   whileHover: 'hover',
   whileTap: 'tap',
   variants: {
-    rest: { maxWidth: '40px' },
+    rest: { maxWidth: 40 },
     hover: {
-      maxWidth: '140px',
+      maxWidth: 140,
       transition: { type: 'spring', stiffness: 200, damping: 35, delay: 0.15 },
     },
     tap: { scale: 0.95 },
@@ -113,6 +113,22 @@ function ManagementBar() {
             layoutRoot
             className='mx-auto flex flex-wrap space-x-2 sm:flex-nowrap'
           >
+            <motion.button
+              {...BUTTON_MOTION_CONFIG}
+              className='flex h-10 items-center space-x-2 overflow-hidden whitespace-nowrap rounded-lg bg-blue-200/60 dark:bg-blue-800/80 px-2.5 py-2 text-blue-700 dark:text-blue-200'
+              aria-label='Nuevo documento'
+              onClick={() => dispatchEditorEvent('editor:new')}
+            >
+              <Plus size={20} className='shrink-0' />
+              <motion.span
+                variants={LABEL_VARIANTS}
+                transition={LABEL_TRANSITION}
+                className='invisible text-sm'
+              >
+                Nuevo
+              </motion.span>
+            </motion.button>
+
             <motion.button
               {...BUTTON_MOTION_CONFIG}
               className='flex h-10 items-center space-x-2 overflow-hidden whitespace-nowrap rounded-lg bg-neutral-200/60 dark:bg-neutral-600/80 px-2.5 py-2 text-neutral-600 dark:text-neutral-200'
