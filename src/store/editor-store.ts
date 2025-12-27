@@ -1,4 +1,5 @@
 import { atom } from 'nanostores';
+import type { Crepe } from '@milkdown/crepe';
 
 export type EditorProgress = {
   label: string;
@@ -21,6 +22,8 @@ export const $modelStatus = atom<ModelStatus>({ phase: 'idle' });
 export const $embeddingProgress = atom<EditorProgress>(null);
 export const $saveStatus = atom<SaveStatus>({ phase: 'idle' });
 export const $lastMarkdownSnapshot = atom<string>('');
+export const editorInstance = atom<Crepe | undefined>(undefined);
+export const readOnlyState = atom<boolean>(false);
 
 export function setModelLoading(progress: EditorProgress) {
   $modelStatus.set({ phase: 'loading', progress });
