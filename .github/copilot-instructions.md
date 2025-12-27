@@ -32,8 +32,8 @@
 - Extensiones requeridas: `pgcrypto` (para `gen_random_uuid()`) y `vector`
   (pgvector). Migración: `drizzle/0001_enable_extensions.sql`.
 - Dimensiones de embeddings: `EMBEDDING_DIMENSIONS = 1024` (alineado con
-  `Xenova/multilingual-e5-large`). Si cambias el modelo, ajusta este valor +
-  nueva migración.
+  `Xenova/paraphrase-multilingual-MiniLM-L12-v2`). Si cambias el modelo, ajusta
+  este valor + nueva migración.
 
 ## Convenciones de código y patrones (hazlo “como aquí”)
 
