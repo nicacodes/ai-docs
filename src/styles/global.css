@@ -131,6 +131,18 @@ h1 {
     @apply bg-background text-foreground;
   }
 
+  /* Improve contrast for Milkdown code blocks */
+  .milkdown .cm-editor {
+    .cm-line {
+      color: #000 !important;
+    }
+
+    .cm-activeLineGutter {
+      background-color: #6699ff0b !important;
+      color: #000 !important;
+    }
+  }
+
   .milkdown .ProseMirror {
     padding: 0 !important;
   }
