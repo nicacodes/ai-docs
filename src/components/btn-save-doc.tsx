@@ -1,8 +1,8 @@
 import { Command, Loader2, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCallback } from 'react';
-import { useStore } from '@nanostores/react'; // <--- IMPORTANTE
-import { $saveStatus } from '@/store/editor-store'; // <--- IMPORTANTE
+import { useStore } from '@nanostores/react';
+import { $saveStatus } from '@/store/editor-store';
 import { useEditorActions, useSaveShortcut } from './editor-actions';
 import { cn } from '@/lib/utils';
 
@@ -20,12 +20,10 @@ export const BtnSaveDoc = () => {
   return (
     <button
       onClick={handleSave}
-      // Deshabilitamos si está ocupado (IA o Guardando) o si no se puede guardar.
       disabled={!canSave && !isBusy}
       className={cn(
         'relative flex items-center justify-center h-9 px-4 min-w-27.5 rounded-lg text-sm font-medium transition-all duration-200',
         'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm active:scale-95',
-        // Estilo especial cuando está deshabilitado
         'disabled:opacity-70 disabled:cursor-not-allowed disabled:active:scale-100',
       )}
       aria-label='Guardar documento'
@@ -34,7 +32,7 @@ export const BtnSaveDoc = () => {
         {/* ICONO */}
         <div className='relative w-4 h-4 flex items-center justify-center'>
           <AnimatePresence mode='popLayout'>
-            {isActuallySaving ? ( // <--- SOLO CAMBIA SI ESTÁ GUARDANDO REALMENTE
+            {isActuallySaving ? (
               <motion.div
                 key='loading'
                 initial={{ opacity: 0, rotate: -90, scale: 0.5 }}
@@ -57,13 +55,9 @@ export const BtnSaveDoc = () => {
             )}
           </AnimatePresence>
         </div>
-
-        {/* TEXTO */}
         <motion.span layout className='whitespace-nowrap'>
           {isActuallySaving ? 'Guardando...' : 'Guardar'}
         </motion.span>
-
-        {/* Atajo (oculto si estamos guardando para no saturar) */}
         {!isActuallySaving && (
           <motion.div
             initial={{ opacity: 0, width: 0 }}

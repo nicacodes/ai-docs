@@ -11,11 +11,7 @@ export const DocumentInfo = () => {
 
   const title = liveTitle || 'Documento sin título';
 
-  // Lógica UX Depurada:
-  // El centro SOLO muestra cosas que el botón NO puede mostrar por sí mismo
-  // o confirmaciones finales.
   const getStatus = () => {
-    // 1. Errores (Siempre prioridad máxima)
     if (saveStatus.phase === 'error') {
       return {
         type: 'status',
@@ -27,7 +23,6 @@ export const DocumentInfo = () => {
       };
     }
 
-    // 2. Procesos de Fondo (IA) - El usuario no clicó nada, así que el centro informa.
     if (modelStatus.phase === 'loading') {
       return {
         type: 'status',
@@ -40,7 +35,6 @@ export const DocumentInfo = () => {
       };
     }
 
-    // 3. Confirmación de Éxito (Feedback final)
     if (saveStatus.phase === 'success') {
       return {
         type: 'status',
@@ -62,7 +56,6 @@ export const DocumentInfo = () => {
     <div className='flex items-center justify-center pointer-events-none w-full h-9'>
       <AnimatePresence mode='wait' initial={false}>
         {current.type === 'status' ? (
-          /* VISTA ESTADO (IA, Error o Éxito) */
           <motion.div
             key='status-pill'
             initial={{ opacity: 0, scale: 0.95, y: 5 }}
@@ -93,7 +86,6 @@ export const DocumentInfo = () => {
             )}
           </motion.div>
         ) : (
-          /* VISTA TÍTULO (Visible en reposo Y mientras el botón guarda) */
           <motion.div
             key='doc-title'
             initial={{ opacity: 0, y: 5 }}

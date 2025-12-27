@@ -105,19 +105,11 @@ function ManagementBar() {
               </MenubarMenu>
             </Menubar>
           </div>
-
-          {/* 2. GRUPO CENTRO (ABSOLUTO)
-              left-1/2 -translate-x-1/2: Esto garantiza el CENTRO MATEMÁTICO del contenedor padre.
-              Ignora completamente el ancho de los botones laterales.
-           */}
           <div className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-full max-w-75 flex justify-center pointer-events-none'>
-            {/* pointer-events-none en el wrapper para que los clics pasen si el título es muy ancho pero transparente */}
             <div className='pointer-events-auto'>
               <DocumentInfo />
             </div>
           </div>
-
-          {/* 3. GRUPO DERECHA (Guardar) */}
           <div className='flex items-center gap-2 z-20'>
             <BtnSaveDoc />
           </div>

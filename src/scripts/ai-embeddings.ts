@@ -18,7 +18,6 @@ export type EmbeddingModelConfig = {
 
 export type EmbedPostArgs = {
   postId: string;
-  // Para E5 es recomendable prefijar: "passage: ..." (doc) o "query: ..." (búsqueda)
   text: string;
   model?: Partial<EmbeddingModelConfig>;
   onProgress?: (p: unknown) => void;
