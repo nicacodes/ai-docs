@@ -29,6 +29,9 @@ importers:
       '@milkdown/prose':
         specifier: ^7.17.3
         version: 7.17.3
+      '@nanostores/react':
+        specifier: ^1.0.0
+        version: 1.0.0(nanostores@1.1.0)(react@19.2.3)
       '@radix-ui/react-menubar':
         specifier: ^1.1.16
         version: 1.1.16(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -908,6 +911,13 @@ packages:
 
   '@milkdown/utils@7.17.3':
     resolution: {integrity: sha512-8JWqfhdupzoZMv7btqYAAXRyqhaOGffh2zpSoD+t9enL0MFvIHsenWS8W8h7XRTL6E6+N6kFZ1qyBHMg6E5Idg==}
+
+  '@nanostores/react@1.0.0':
+    resolution: {integrity: sha512-eDduyNy+lbQJMg6XxZ/YssQqF6b4OXMFEZMYKPJCCmBevp1lg0g+4ZRi94qGHirMtsNfAWKNwsjOhC+q1gvC+A==}
+    engines: {node: ^20.0.0 || >=22.0.0}
+    peerDependencies:
+      nanostores: ^0.9.0 || ^0.10.0 || ^0.11.0 || ^1.0.0
+      react: '>=18.0.0'
 
   '@ocavue/utils@1.2.0':
     resolution: {integrity: sha512-i6pqOUqNj2r1kr+czdrkMRHCWqq0KvwYieOH4QijucR53LnquK9LN6UrWJMioQQrha3Zh48b+k/M1zvUbL5HdA==}
@@ -4391,6 +4401,11 @@ snapshots:
       nanoid: 5.1.6
     transitivePeerDependencies:
       - supports-color
+
+  '@nanostores/react@1.0.0(nanostores@1.1.0)(react@19.2.3)':
+    dependencies:
+      nanostores: 1.1.0
+      react: 19.2.3
 
   '@ocavue/utils@1.2.0': {}
 
