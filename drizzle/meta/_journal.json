@@ -8,6 +8,13 @@
       "when": 1766594845766,
       "tag": "0000_living_talkback",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1766875094880,
+      "tag": "0001_dazzling_scarlet_spider",
+      "breakpoints": true
     }
   ]
 }
