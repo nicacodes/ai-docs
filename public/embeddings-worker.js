@@ -1,26 +1,31 @@
-/* Web Worker: embeddings (Transformers.js v2.17.2 - Xenova)
-   Versión estable con soporte completo de progreso de descarga.
-   Se usa la versión 2.x que es la más robusta para fetch en workers.
+/* Web Worker: Embeddings via @huggingface/transformers (v3)
+   Optimizado para WebGPU con fallback a WASM.
+   Soporta progress_callback nativo de v3.
 */
 
 import {
   pipeline,
   env,
-} from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.19';
 
+// Configuración
+env.allowLocalModels = false;
+env.useBrowserCache = true;
+
+// Singleton del pipeline
 let featureExtractionPipeline = null;
 let currentConfig = {
   modelId: null,
   device: null,
 };
 
-// Tracking de archivos siendo descargados para evitar duplicados
-const downloadTracker = new Map();
-
 function toPlainArray(vectorLike) {
   if (!vectorLike) return null;
   if (Array.isArray(vectorLike)) return vectorLike;
+  // En v3, output.tolist() retorna arrays anidados
+  if (typeof vectorLike.tolist === 'function') return vectorLike.tolist();
   if (ArrayBuffer.isView(vectorLike)) return Array.from(vectorLike);
+  if (vectorLike?.data) return Array.from(vectorLike.data);
   return vectorLike;
 }
 
@@ -42,179 +47,81 @@ function postResponse(requestId, ok, result, error) {
   });
 }
 
-// Función para calcular el progreso total de todas las descargas activas
-function calculateTotalProgress() {
-  if (downloadTracker.size === 0) return null;
-
-  let totalBytes = 0;
-  let loadedBytes = 0;
-
-  for (const [, info] of downloadTracker) {
-    totalBytes += info.total;
-    loadedBytes += info.loaded;
+// Detectar soporte WebGPU
+function detectDevice(preferredDevice) {
+  if (preferredDevice && preferredDevice !== 'auto') {
+    return preferredDevice;
   }
-
-  if (totalBytes === 0) return null;
-  return Math.min(99, Math.round((loadedBytes / totalBytes) * 100));
+  
+  const hasWebGPU = typeof navigator !== 'undefined' && !!navigator.gpu;
+  return hasWebGPU ? 'webgpu' : 'wasm';
 }
 
 async function ensurePipeline({ modelId, device, reportProgress }) {
+  const resolvedDevice = detectDevice(device);
+  
   if (
     featureExtractionPipeline &&
     currentConfig.modelId === modelId &&
-    currentConfig.device === device
+    currentConfig.device === resolvedDevice
   ) {
     return featureExtractionPipeline;
   }
 
   const report = typeof reportProgress === 'function' ? reportProgress : null;
 
-  // Configuración para Xenova/transformers v2
-  env.allowRemoteModels = true;
-  env.useBrowserCache = true;
-  env.allowLocalModels = false;
-
-  // Limpiar tracker de descargas anteriores
-  downloadTracker.clear();
-
-  // Interceptar fetch ANTES de la descarga del modelo
-  const originalFetch = globalThis.fetch;
-
-  globalThis.fetch = async function (input, init) {
-    const url = typeof input === 'string' ? input : input?.url || '';
-
-    // Solo trackear descargas de assets del modelo
-    const isModelAsset = /huggingface|hf\.co|jsdelivr|onnxruntime|\\.wasm($|\\?)|\\.onnx($|\\?)|\\.bin($|\\?)|\\.json($|\\?)/i.test(url);
-
-    if (!isModelAsset || !report) {
-      return originalFetch(input, init);
-    }
-
-    const response = await originalFetch(input, init);
-
-    // Clonar headers porque vamos a crear un nuevo Response
-    const contentLength = response.headers.get('content-length');
-    const total = contentLength ? parseInt(contentLength, 10) : 0;
-
-    if (!response.body || total === 0) {
-      // Sin content-length, solo reportar que está descargando
-      report({ phase: 'loading', label: 'Descargando modelo', percent: null });
-      return response;
-    }
-
-    // Usar URL como key única para este archivo
-    const fileKey = url.split('/').pop() || url;
-    downloadTracker.set(fileKey, { loaded: 0, total });
-
-    const reader = response.body.getReader();
-
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-
-            if (done) {
-              // Marcar este archivo como completado
-              const info = downloadTracker.get(fileKey);
-              if (info) {
-                info.loaded = info.total;
-              }
-
-              const totalPct = calculateTotalProgress();
-              if (totalPct !== null) {
-                report({
-                  phase: 'loading',
-                  label: 'Descargando modelo',
-                  percent: totalPct
-                });
-              }
-
-              controller.close();
-              break;
-            }
-
-            // Actualizar progreso
-            const info = downloadTracker.get(fileKey);
-            if (info && value) {
-              info.loaded += value.byteLength;
-            }
-
-            const totalPct = calculateTotalProgress();
-            if (totalPct !== null) {
-              report({
-                phase: 'loading',
-                label: 'Descargando modelo',
-                percent: totalPct
-              });
-            }
-
-            controller.enqueue(value);
-          }
-        } catch (err) {
-          controller.error(err);
-        }
-      },
-      cancel(reason) {
-        reader.cancel(reason);
-        downloadTracker.delete(fileKey);
-      }
-    });
-
-    return new Response(stream, {
-      headers: response.headers,
-      status: response.status,
-      statusText: response.statusText,
-    });
-  };
-
   // Mostrar estado inicial
   if (report) {
     report({ phase: 'loading', label: 'Iniciando descarga', percent: 0 });
   }
 
-  const resolvedDevice = device || 'wasm';
+  console.log(`[Worker] Iniciando pipeline: model=${modelId}, device=${resolvedDevice}`);
 
   try {
-    // En v2.x usamos las opciones de progreso nativas también
     featureExtractionPipeline = await pipeline('feature-extraction', modelId, {
       device: resolvedDevice,
-      progress_callback: (progressInfo) => {
-        // Callback nativo de transformers.js para progreso de descarga
-        if (report && progressInfo) {
-          const { status, progress, file } = progressInfo;
+      dtype: 'fp32',
+      progress_callback: (data) => {
+        // Transformers.js v3 progress callback
+        // { status: 'progress', loaded: X, total: Y, file: '...' }
+        // { status: 'done', file: '...' }
+        // { status: 'initiate', file: '...' }
+        if (!report) return;
 
-          if (status === 'downloading' || status === 'progress') {
-            const pct = typeof progress === 'number' ? Math.round(progress) : null;
-            report({
-              phase: 'loading',
-              label: file ? `Descargando ${file}` : 'Descargando modelo',
-              percent: pct
-            });
-          } else if (status === 'done') {
-            report({
-              phase: 'loading',
-              label: 'Modelo listo',
-              percent: 100
-            });
-          }
+        if (data.status === 'progress' && data.total > 0) {
+          const pct = Math.round((data.loaded / data.total) * 100);
+          report({
+            phase: 'loading',
+            label: data.file ? `Descargando ${data.file}` : 'Descargando modelo',
+            percent: pct,
+          });
+        } else if (data.status === 'done') {
+          // Archivo individual completado
+          report({
+            phase: 'loading',
+            label: `Completado: ${data.file || 'archivo'}`,
+            percent: null, // No sabemos el porcentaje total aún
+          });
+        } else if (data.status === 'ready') {
+          report({
+            phase: 'loading',
+            label: 'Modelo listo',
+            percent: 100,
+          });
         }
-      }
+      },
     });
 
     currentConfig = { modelId, device: resolvedDevice };
-
-    // Restaurar fetch original
-    globalThis.fetch = originalFetch;
 
     if (report) {
       report({ phase: 'loading', label: 'Modelo listo', percent: 100 });
     }
 
+    console.log(`[Worker] Pipeline listo: ${modelId} en ${resolvedDevice}`);
     return featureExtractionPipeline;
   } catch (err) {
-    // Restaurar fetch en caso de error
-    globalThis.fetch = originalFetch;
+    console.error('[Worker] Error inicializando pipeline:', err);
     throw err;
   }
 }
@@ -235,7 +142,6 @@ self.addEventListener('message', async (event) => {
     if (type === 'clearCache') {
       featureExtractionPipeline = null;
       currentConfig = { modelId: null, device: null };
-      downloadTracker.clear();
       postResponse(requestId, true, { cleared: true });
       return;
     }
@@ -243,7 +149,7 @@ self.addEventListener('message', async (event) => {
     if (type === 'init') {
       const modelId =
         payload?.modelId || 'Xenova/paraphrase-multilingual-MiniLM-L12-v2';
-      const device = payload?.device || 'wasm';
+      const device = payload?.device || 'auto';
 
       postProgress(requestId, {
         phase: 'loading',
@@ -266,7 +172,7 @@ self.addEventListener('message', async (event) => {
         payload?.modelId ||
         currentConfig.modelId ||
         'Xenova/paraphrase-multilingual-MiniLM-L12-v2';
-      const device = payload?.device || currentConfig.device || 'wasm';
+      const device = payload?.device || currentConfig.device || 'auto';
       const texts = payload?.texts;
 
       if (!Array.isArray(texts) || texts.length === 0) {
@@ -282,23 +188,36 @@ self.addEventListener('message', async (event) => {
         reportProgress: (p) => postProgress(requestId, p),
       });
 
-      const embeddings = [];
-      for (let i = 0; i < texts.length; i++) {
-        postProgress(requestId, {
-          phase: 'running',
-          index: i,
-          total: texts.length,
-          percent: Math.round(((i + 1) / texts.length) * 100),
-        });
+      // Reportar inicio de procesamiento
+      postProgress(requestId, {
+        phase: 'running',
+        label: 'Generando embeddings',
+        percent: 0,
+      });
 
-        const output = await pipe(texts[i], {
-          pooling: 'mean',
-          normalize: true,
-        });
+      // En v3, podemos procesar todos los textos de una vez para mejor eficiencia
+      const output = await pipe(texts, {
+        pooling: 'mean',
+        normalize: true,
+      });
 
-        const vector = Array.isArray(output) ? output : output?.data;
-        embeddings.push(toPlainArray(vector));
+      // Convertir output a arrays planos
+      // output.tolist() en v3 devuelve un array de arrays
+      let embeddings;
+      if (typeof output.tolist === 'function') {
+        embeddings = output.tolist();
+      } else if (Array.isArray(output)) {
+        embeddings = output.map(toPlainArray);
+      } else {
+        // Fallback para un solo texto
+        embeddings = [toPlainArray(output)];
       }
+
+      postProgress(requestId, {
+        phase: 'running',
+        label: 'Embeddings generados',
+        percent: 100,
+      });
 
       postResponse(requestId, true, {
         modelId: currentConfig.modelId,
@@ -312,6 +231,7 @@ self.addEventListener('message', async (event) => {
       message: `Tipo de mensaje desconocido: ${type}`,
     });
   } catch (err) {
+    console.error('[Worker] Error:', err);
     postResponse(requestId, false, null, {
       message: err?.message || String(err),
       name: err?.name,
