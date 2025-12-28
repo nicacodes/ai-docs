@@ -26,7 +26,7 @@ import {
 import {
   embedPost,
   ensureSwReady,
-  initEmbeddingModel,
+  ensureModelInitialized,
 } from '@/scripts/ai-embeddings';
 
 const MODEL = {
@@ -34,7 +34,7 @@ const MODEL = {
   device: 'wasm' as const,
 };
 
-let modelInitPromise: Promise<void> | null = null;
+// Solo tracking local de estado de guardado
 let isSaving = false;
 
 function normalizeProgressPayload(payload: unknown): EditorProgress {
@@ -105,25 +105,24 @@ function clearCurrentDoc() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
+/**
+ * Asegura que el modelo de embeddings esté listo para usar.
+ * Usa la función centralizada de ai-embeddings.ts para evitar duplicación de estado.
+ */
 export async function ensureModelReady() {
-  if (modelInitPromise) return modelInitPromise;
-  modelInitPromise = (async () => {
-    try {
-      setModelLoading({ label: 'Cargando modelo', percent: 0 });
-      await ensureSwReady();
-      await initEmbeddingModel(MODEL, (payload: unknown) => {
-        const next = normalizeProgressPayload(payload);
-        if (next) setModelLoading(next);
-      });
-      setModelReady();
-    } catch (err) {
-      console.warn('No se pudo inicializar embeddings:', err);
-      setModelError('No se pudo cargar el modelo');
-      modelInitPromise = null;
-      throw err;
-    }
-  })();
-  return modelInitPromise;
+  try {
+    setModelLoading({ label: 'Cargando modelo', percent: 0 });
+    await ensureSwReady();
+    await ensureModelInitialized(MODEL, (payload: unknown) => {
+      const next = normalizeProgressPayload(payload);
+      if (next) setModelLoading(next);
+    });
+    setModelReady();
+  } catch (err) {
+    console.warn('No se pudo inicializar embeddings:', err);
+    setModelError('No se pudo cargar el modelo');
+    throw err;
+  }
 }
 
 function formatProgress(p: EditorProgress): string {

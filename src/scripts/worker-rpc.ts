@@ -26,23 +26,54 @@ function randomId() {
 }
 
 let workerInstance: Worker | null = null;
+let workerReady = false;
 
-export function getEmbeddingsWorker(workerUrl = '/embeddings-worker.js') {
-  if (workerInstance) return workerInstance;
+/**
+ * Verifica si el worker está vivo y listo para recibir mensajes
+ */
+export function isWorkerAlive(): boolean {
+  return workerInstance !== null && workerReady;
+}
+
+/**
+ * Obtiene el worker singleton. Si ya existe y está vivo, lo reutiliza.
+ * NO crea un nuevo worker si uno ya existe.
+ */
+export function getEmbeddingsWorker(workerUrl = '/embeddings-worker.js'): Worker {
+  if (workerInstance && workerReady) {
+    return workerInstance;
+  }
 
   if (typeof Worker === 'undefined') {
     throw new Error('Web Workers no están soportados en este navegador.');
   }
 
-  // Worker module para permitir imports ESM.
-  workerInstance = new Worker(workerUrl, { type: 'module' });
+  // Solo crear nuevo worker si no existe
+  if (!workerInstance) {
+    console.log('[Worker RPC] Creando nuevo worker de embeddings...');
+    workerInstance = new Worker(workerUrl, { type: 'module' });
+    
+    // Manejar errores del worker
+    workerInstance.onerror = (err) => {
+      console.error('[Worker RPC] Error en worker:', err);
+      workerReady = false;
+    };
+  }
+  
+  workerReady = true;
   return workerInstance;
 }
 
+/**
+ * Termina el worker (solo llamar cuando realmente se necesita limpiar).
+ * En la mayoría de los casos NO deberías llamar esto - el worker debería persistir.
+ */
 export function terminateEmbeddingsWorker() {
   if (workerInstance) {
+    console.log('[Worker RPC] Terminando worker de embeddings...');
     workerInstance.terminate();
     workerInstance = null;
+    workerReady = false;
   }
 }
 

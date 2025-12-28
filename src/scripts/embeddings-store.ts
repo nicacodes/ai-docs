@@ -30,8 +30,22 @@ export function contentHash(text: string) {
   return fnv1a32(text);
 }
 
+// Singleton connection para evitar abrir/cerrar repetidamente
+let dbInstance: IDBDatabase | null = null;
+let dbPromise: Promise<IDBDatabase> | null = null;
+
 function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  // Reutilizar conexión existente
+  if (dbInstance) {
+    return Promise.resolve(dbInstance);
+  }
+  
+  // Reutilizar promesa en curso
+  if (dbPromise) {
+    return dbPromise;
+  }
+  
+  dbPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
 
     req.onupgradeneeded = () => {
@@ -43,10 +57,25 @@ function openDb(): Promise<IDBDatabase> {
       db.createObjectStore(STORE, { keyPath: 'key' });
     };
 
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () =>
+    req.onsuccess = () => {
+      dbInstance = req.result;
+      
+      // Limpiar si la DB se cierra inesperadamente
+      dbInstance.onclose = () => {
+        dbInstance = null;
+        dbPromise = null;
+      };
+      
+      resolve(dbInstance);
+    };
+    
+    req.onerror = () => {
+      dbPromise = null;
       reject(req.error ?? new Error('No se pudo abrir IndexedDB'));
+    };
   });
+  
+  return dbPromise;
 }
 
 export function makeEmbeddingKey(args: {
@@ -97,49 +126,38 @@ export async function getStoredEmbedding(args: {
   const { key } = computeEmbeddingIdentity(args);
 
   const db = await openDb();
-  try {
-    return await new Promise<StoredEmbedding | null>((resolve, reject) => {
-      const tx = db.transaction(STORE, 'readonly');
-      const store = tx.objectStore(STORE);
-      const req = store.get(key);
-      req.onsuccess = () => resolve((req.result as StoredEmbedding) ?? null);
-      req.onerror = () =>
-        reject(req.error ?? new Error('Error leyendo IndexedDB'));
-    });
-  } finally {
-    db.close();
-  }
+  return await new Promise<StoredEmbedding | null>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const store = tx.objectStore(STORE);
+    const req = store.get(key);
+    req.onsuccess = () => resolve((req.result as StoredEmbedding) ?? null);
+    req.onerror = () =>
+      reject(req.error ?? new Error('Error leyendo IndexedDB'));
+  });
 }
 
 export async function putStoredEmbedding(
   entry: Omit<StoredEmbedding, 'updatedAt'>,
 ) {
   const db = await openDb();
-  try {
-    const value: StoredEmbedding = { ...entry, updatedAt: Date.now() };
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE, 'readwrite');
-      tx.oncomplete = () => resolve();
-      tx.onerror = () =>
-        reject(tx.error ?? new Error('Error escribiendo IndexedDB'));
-      tx.objectStore(STORE).put(value);
-    });
-  } finally {
-    db.close();
-  }
+  const value: StoredEmbedding = { ...entry, updatedAt: Date.now() };
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.oncomplete = () => resolve();
+    tx.onerror = () =>
+      reject(tx.error ?? new Error('Error escribiendo IndexedDB'));
+    tx.objectStore(STORE).put(value);
+  });
 }
 
 export async function clearEmbeddingsStore() {
   const db = await openDb();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE, 'readwrite');
-      tx.oncomplete = () => resolve();
-      tx.onerror = () =>
-        reject(tx.error ?? new Error('Error limpiando IndexedDB'));
-      tx.objectStore(STORE).clear();
-    });
-  } finally {
-    db.close();
-  }
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.oncomplete = () => resolve();
+    tx.onerror = () =>
+      reject(tx.error ?? new Error('Error limpiando IndexedDB'));
+    tx.objectStore(STORE).clear();
+  });
 }
+

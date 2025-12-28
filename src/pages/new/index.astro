@@ -30,6 +30,15 @@ export const prerender = false;
   import { disposeEmbeddingsClient } from "@/scripts/ai-embeddings";
 
   let crepeInstance: Crepe | null = null;
+  let updateDebounceId: number | null = null;
+
+  // Debounce para evitar procesamiento excesivo en cada keystroke
+  function debounce<T extends (...args: any[]) => void>(fn: T, ms: number): T {
+    return ((...args: any[]) => {
+      if (updateDebounceId) window.clearTimeout(updateDebounceId);
+      updateDebounceId = window.setTimeout(() => fn(...args), ms);
+    }) as T;
+  }
 
   async function initEditor() {
     if (crepeInstance) {
@@ -73,36 +82,34 @@ export const prerender = false;
       ]);
     });
 
+    // Handler con debounce para evitar spam en cada keystroke
+    const handleUpdate = debounce((ctx: any) => {
+      const view = ctx.get(editorViewCtx);
+      const { state } = view;
+      const firstChild = state.doc.firstChild;
+
+      // Seguridad: Si el documento está vacío, no hacemos nada
+      if (!firstChild) return;
+
+      const esTituloH1 =
+        firstChild.type.name === "heading" && firstChild.attrs.level === 1;
+
+      // Si NO es H1, lo arreglamos (solo si es necesario)
+      if (!esTituloH1) {
+        const tr = state.tr.setNodeMarkup(0, state.schema.nodes.heading, {
+          level: 1,
+        });
+        view.dispatch(tr);
+        return;
+      }
+
+      // Actualizar título solo si cambió
+      const textoTitulo = firstChild.textContent.trim() || "Sin título";
+      setCurrentTitle(textoTitulo);
+    }, 300); // 300ms debounce
+
     crepeInstance.on((api) => {
-      api.updated((ctx) => {
-        const view = ctx.get(editorViewCtx);
-        const { state } = view;
-        const firstChild = state.doc.firstChild;
-
-        // Seguridad: Si el documento está vacío, no hacemos nada
-        if (!firstChild) return;
-
-        const esTituloH1 =
-          firstChild.type.name === "heading" && firstChild.attrs.level === 1;
-
-        // 3. Si NO es H1 (porque el usuario borró el #), lo arreglamos
-        if (!esTituloH1) {
-          const tr = state.tr.setNodeMarkup(0, state.schema.nodes.heading, {
-            level: 1,
-          });
-
-          // Aplicamos el cambio inmediatamente
-          view.dispatch(tr);
-        }
-
-        if (esTituloH1) {
-          // Obtenemos el texto puro del nodo H1. Si está vacío, ponemos placeholder.
-          const textoTitulo = firstChild.textContent.trim() || "Sin título";
-          setCurrentTitle(textoTitulo);
-        }
-
-        console.log("Editor updated (checked title)");
-      });
+      api.updated(handleUpdate);
     });
 
     await crepeInstance.create();
@@ -112,13 +119,19 @@ export const prerender = false;
   initEditor();
 
   document.addEventListener("astro:before-swap", () => {
+    // Limpiar debounce pendiente
+    if (updateDebounceId) {
+      window.clearTimeout(updateDebounceId);
+      updateDebounceId = null;
+    }
+
     if (crepeInstance) {
-      console.log("Limpiando editor de memoria...");
       crepeInstance.destroy();
       crepeInstance = null;
       editorInstance.set(undefined);
     }
 
+    // NO terminamos el worker - preservamos el modelo en memoria
     disposeEmbeddingsClient();
   });
 </script>

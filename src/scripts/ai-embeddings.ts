@@ -2,6 +2,7 @@ import { $lastMarkdownSnapshot } from '@/store/editor-store';
 import {
   createWorkerRpcClient,
   getEmbeddingsWorker,
+  isWorkerAlive,
   terminateEmbeddingsWorker,
 } from './worker-rpc';
 import {
@@ -28,17 +29,24 @@ const DEFAULT_MODEL: EmbeddingModelConfig = {
   device: 'wasm',
 };
 
+// Estado centralizado - sin duplicación
 let rpc: ReturnType<typeof createWorkerRpcClient> | null = null;
-let worker: Worker | null = null;
-let ready = false;
 let modelInitPromise: Promise<void> | null = null;
 let activeModel: EmbeddingModelConfig | null = null;
 
+/**
+ * Asegura que el worker y RPC client estén listos.
+ * Reutiliza el singleton existente si está vivo.
+ */
 export async function ensureSwReady() {
-  if (ready && rpc && worker) return;
-  worker = getEmbeddingsWorker('/embeddings-worker.js');
+  // Si ya hay RPC y worker activo, reutilizar
+  if (rpc && isWorkerAlive()) {
+    return;
+  }
+  
+  // Crear/obtener worker y RPC
+  const worker = getEmbeddingsWorker('/embeddings-worker.js');
   rpc = createWorkerRpcClient(worker);
-  ready = true;
 }
 
 export async function initEmbeddingModel(
@@ -58,7 +66,11 @@ export async function initEmbeddingModel(
   });
 }
 
-async function ensureModelInitialized(
+/**
+ * Asegura que el modelo esté inicializado.
+ * Reutiliza la promesa existente si el modelo es el mismo.
+ */
+export async function ensureModelInitialized(
   cfg: EmbeddingModelConfig,
   onProgress?: (p: unknown) => void,
 ) {
@@ -178,16 +190,23 @@ export function subscribeDebouncedEmbeddings(opts: {
   };
 }
 
-export function disposeEmbeddingsClient() {
+/**
+ * Limpia el cliente RPC pero NO termina el worker.
+ * El worker se mantiene vivo para preservar el modelo en memoria.
+ * Solo llamar terminateEmbeddingsWorker() si realmente quieres eliminar el modelo.
+ */
+export function disposeEmbeddingsClient(options?: { terminateWorker?: boolean }) {
   if (rpc) {
     rpc.dispose();
     rpc = null;
   }
-  terminateEmbeddingsWorker();
-  worker = null;
-  ready = false;
-  activeModel = null;
-  modelInitPromise = null;
+  
+  // Por defecto NO terminamos el worker para preservar el modelo en memoria
+  if (options?.terminateWorker) {
+    terminateEmbeddingsWorker();
+    activeModel = null;
+    modelInitPromise = null;
+  }
 }
 
 export async function swStatus() {
