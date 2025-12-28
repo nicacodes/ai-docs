@@ -30,7 +30,7 @@ import {
 } from '@/scripts/ai-embeddings';
 
 const MODEL = {
-  modelId: 'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
+  modelId: 'Xenova/multilingual-e5-small',
   device: 'wasm' as const,
 };
 

@@ -1,0 +1,145 @@
+---
+import "@milkdown/crepe/theme/common/style.css";
+import "@milkdown/crepe/theme/frame.css";
+import Layout from "@/layouts/layout.astro";
+import { getDb } from "@/db/client";
+import { documents } from "@/db/schema";
+import { eq } from "drizzle-orm";
+
+export const prerender = false;
+
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect("/");
+}
+
+// Fetch document by slug
+const db = getDb();
+const rows = await db
+  .select({
+    id: documents.id,
+    title: documents.title,
+    slug: documents.slug,
+    rawMarkdown: documents.rawMarkdown,
+    createdAt: documents.createdAt,
+  })
+  .from(documents)
+  .where(eq(documents.slug, slug))
+  .limit(1);
+
+const post = rows[0];
+
+if (!post) {
+  return Astro.redirect("/");
+}
+---
+
+<Layout title={post.title}>
+  <div class="w-full flex justify-center relative">
+    <div class="w-full max-w-4xl">
+      <!-- Header de navegación para el post -->
+      <div class="sticky top-4 z-20 mb-6">
+        <div
+          class="flex items-center justify-between h-11 px-4 rounded-xl bg-background/95 backdrop-blur-xl border border-border/40 shadow-sm"
+        >
+          <a
+            href="/"
+            class="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="m12 19-7-7 7-7"></path>
+              <path d="M19 12H5"></path>
+            </svg>
+            <span class="text-sm font-medium">Volver</span>
+          </a>
+
+          <div class="flex items-center gap-3 text-xs text-muted-foreground">
+            <time datetime={post.createdAt?.toISOString()}>
+              {
+                new Intl.DateTimeFormat("es", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                }).format(post.createdAt)
+              }
+            </time>
+          </div>
+        </div>
+      </div>
+
+      <!-- Editor en modo solo lectura -->
+      <div id="app" class="w-full min-h-[70vh] milkdown-readonly"></div>
+    </div>
+  </div>
+</Layout>
+
+<script define:vars={{ rawMarkdown: post.rawMarkdown }}>
+  window.__POST_CONTENT__ = rawMarkdown;
+</script>
+
+<script>
+  import { Crepe } from "@milkdown/crepe";
+
+  let crepeInstance: Crepe | null = null;
+
+  async function initReadonlyEditor() {
+    if (crepeInstance) {
+      crepeInstance.destroy();
+      crepeInstance = null;
+    }
+
+    const content = (window as any).__POST_CONTENT__ || "";
+
+    crepeInstance = new Crepe({
+      root: "#app",
+      defaultValue: content,
+    });
+
+    // Configurar como solo lectura
+    crepeInstance.setReadonly(true);
+
+    await crepeInstance.create();
+  }
+
+  initReadonlyEditor();
+
+  document.addEventListener("astro:before-swap", () => {
+    if (crepeInstance) {
+      console.log("Limpiando editor readonly de memoria...");
+      crepeInstance.destroy();
+      crepeInstance = null;
+    }
+  });
+</script>
+
+<style>
+  /* Ocultar elementos de edición en modo readonly */
+  .milkdown-readonly :global(.crepe-toolbar),
+  .milkdown-readonly :global(.crepe-menu),
+  .milkdown-readonly :global([data-crepe-toolbar]),
+  .milkdown-readonly :global(.milkdown-menu) {
+    display: none !important;
+  }
+
+  /* Cursor por defecto en modo lectura */
+  .milkdown-readonly :global(.ProseMirror) {
+    cursor: default;
+  }
+
+  /* Desactivar selección de texto para evitar confusión del usuario */
+  .milkdown-readonly :global(.ProseMirror)::selection,
+  .milkdown-readonly :global(.ProseMirror) *::selection {
+    background: transparent;
+  }
+</style>

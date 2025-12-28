@@ -240,4 +240,82 @@ export const documentsActions = {
       return { upserted: values.length };
     },
   }),
+
+  list: defineAction({
+    input: z.object({
+      limit: z.number().int().min(1).max(100).default(20),
+      offset: z.number().int().min(0).default(0),
+      search: z.string().optional(),
+    }),
+    handler: async ({ limit, offset, search }) => {
+      const db = getDb();
+
+      let query = db
+        .select({
+          id: documents.id,
+          title: documents.title,
+          slug: documents.slug,
+          rawMarkdown: documents.rawMarkdown,
+          metadata: documents.metadata,
+          createdAt: documents.createdAt,
+          updatedAt: documents.updatedAt,
+        })
+        .from(documents)
+        .orderBy(sql`${documents.createdAt} DESC`)
+        .limit(limit)
+        .offset(offset);
+
+      if (search && search.trim()) {
+        const searchTerm = `%${search.trim().toLowerCase()}%`;
+        query = query.where(
+          sql`LOWER(${documents.title}) LIKE ${searchTerm}`,
+        ) as typeof query;
+      }
+
+      const rows = await query;
+
+      // Extract excerpt from rawMarkdown (first 160 chars)
+      return rows.map((row) => ({
+        ...row,
+        excerpt: row.rawMarkdown
+          .replace(/^#.*$/gm, '')
+          .replace(/[#*_`]/g, '')
+          .trim()
+          .slice(0, 160) + (row.rawMarkdown.length > 160 ? '...' : ''),
+      }));
+    },
+  }),
+
+  getBySlug: defineAction({
+    input: z.object({
+      slug: z.string().min(1),
+    }),
+    handler: async ({ slug }) => {
+      const db = getDb();
+
+      const rows = await db
+        .select({
+          id: documents.id,
+          title: documents.title,
+          slug: documents.slug,
+          rawMarkdown: documents.rawMarkdown,
+          metadata: documents.metadata,
+          createdAt: documents.createdAt,
+          updatedAt: documents.updatedAt,
+        })
+        .from(documents)
+        .where(eq(documents.slug, slug))
+        .limit(1);
+
+      const row = rows[0];
+      if (!row) {
+        throw new ActionError({
+          code: 'NOT_FOUND',
+          message: 'Documento no encontrado.',
+        });
+      }
+
+      return row;
+    },
+  }),
 };

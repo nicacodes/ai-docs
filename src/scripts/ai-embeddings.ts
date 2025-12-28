@@ -24,7 +24,7 @@ export type EmbedPostArgs = {
 };
 
 const DEFAULT_MODEL: EmbeddingModelConfig = {
-  modelId: 'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
+  modelId: 'Xenova/multilingual-e5-small',
   device: 'wasm',
 };
 

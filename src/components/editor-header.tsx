@@ -43,12 +43,9 @@ function ManagementBar() {
   const modelStatus = useStore($modelStatus);
   const saveStatus = useStore($saveStatus);
 
-  // Iniciar la descarga del modelo cuando se monta el componente
-  useEffect(() => {
-    ensureModelReady().catch((err) => {
-      console.warn('Error al iniciar descarga del modelo:', err);
-    });
-  }, []);
+  // NOTA: El modelo de embeddings ahora se carga de forma diferida (lazy)
+  // Solo se descargará cuando el usuario guarde un documento por primera vez
+  // Esto ahorra ~3GB de RAM al abrir la página
 
   const isBusy =
     modelStatus.phase === 'loading' || saveStatus.phase === 'saving';
