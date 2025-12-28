@@ -1,0 +1,226 @@
+import { useEffect, useState, useRef } from 'react';
+import { Search, HomeIcon, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ModeToggle } from './ui/mode-toggle';
+import { Button } from './ui/button';
+import { cn } from '@/lib/utils';
+
+interface GlobalHeaderProps {
+    showSearch?: boolean;
+    showHome?: boolean;
+    isLoading?: boolean;
+    className?: string;
+}
+
+function GlobalHeader({
+    showSearch = true,
+    showHome = true,
+    isLoading = false,
+    className
+}: GlobalHeaderProps) {
+    const [isScrolled, setIsScrolled] = useState(false);
+    const [searchValue, setSearchValue] = useState('');
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setIsScrolled(window.scrollY > 20);
+        };
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    // Focus input when search opens on mobile
+    useEffect(() => {
+        if (isSearchOpen && searchInputRef.current) {
+            searchInputRef.current.focus();
+        }
+    }, [isSearchOpen]);
+
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchValue(e.target.value);
+    };
+
+    const handleSearchSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (searchValue.trim()) {
+            // Dispatch custom event for search
+            window.dispatchEvent(
+                new CustomEvent('blog:search', { detail: searchValue.trim() })
+            );
+        }
+    };
+
+    const handleSearchClear = () => {
+        setSearchValue('');
+        window.dispatchEvent(new CustomEvent('blog:search', { detail: '' }));
+    };
+
+    return (
+        <div
+            className={cn(
+                'w-full flex justify-center sticky z-20 pointer-events-none transition-all duration-300 ease-out',
+                isScrolled ? 'top-0' : 'top-4',
+                className
+            )}
+        >
+            <div
+                className={cn(
+                    'relative overflow-hidden p-px pointer-events-auto shadow-sm w-full transition-all duration-300 ease-out',
+                    isScrolled ? 'max-w-full rounded-none' : 'max-w-5xl rounded-xl',
+                )}
+            >
+                <AnimatePresence>
+                    {isLoading && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1, rotate: 360 }}
+                            exit={{ opacity: 0 }}
+                            transition={{
+                                opacity: { duration: 0.5 },
+                                rotate: {
+                                    duration: 4,
+                                    repeat: Infinity,
+                                    ease: 'linear',
+                                },
+                            }}
+                            className="absolute -inset-[150%] z-0"
+                            style={{
+                                background:
+                                    'conic-gradient(from 0deg, transparent 40%, #06b6d4 80%, #a855f7 90%, #ec4899 100%)',
+                            }}
+                        />
+                    )}
+                </AnimatePresence>
+                <div
+                    className={cn(
+                        'relative z-10 flex items-center justify-between w-full h-12 px-4 transition-all duration-300 ease-out',
+                        !isLoading && 'border border-border/40',
+                        isScrolled
+                            ? 'bg-background/60 backdrop-blur-2xl shadow-lg shadow-black/5 dark:shadow-black/20 rounded-none'
+                            : 'bg-background/95 backdrop-blur-xl rounded-xl',
+                    )}
+                >
+                    {/* Left section - Brand/Home */}
+                    <div className="flex items-center gap-3 z-20">
+                        {showHome && (
+                            <a href="/" className="flex items-center gap-2.5 group">
+                                <div className="size-8 rounded-lg bg-gradient-to-br from-foreground/90 to-foreground/70 dark:from-foreground/80 dark:to-foreground/60 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+                                    <HomeIcon
+                                        size={16}
+                                        className="text-background group-hover:scale-110 transition-transform"
+                                    />
+                                </div>
+                                <span className="font-semibold text-base text-foreground hidden sm:block">
+                                    AI Blog
+                                </span>
+                            </a>
+                        )}
+                    </div>
+
+                    {/* Center section - Search (Desktop) */}
+                    {showSearch && (
+                        <form
+                            onSubmit={handleSearchSubmit}
+                            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-full max-w-sm px-4 hidden sm:block"
+                        >
+                            <div className="relative">
+                                <Search
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70"
+                                    size={15}
+                                />
+                                <input
+                                    type="text"
+                                    value={searchValue}
+                                    onChange={handleSearchChange}
+                                    placeholder="Buscar..."
+                                    className={cn(
+                                        'w-full h-8 pl-9 pr-8 rounded-lg',
+                                        'bg-muted/40 border border-transparent',
+                                        'text-sm text-foreground placeholder:text-muted-foreground/60',
+                                        'focus:outline-none focus:ring-1 focus:ring-ring/40 focus:bg-muted/60',
+                                        'transition-all duration-200',
+                                        'hover:bg-muted/50',
+                                    )}
+                                />
+                                {searchValue && (
+                                    <button
+                                        type="button"
+                                        onClick={handleSearchClear}
+                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground transition-colors"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
+                        </form>
+                    )}
+
+                    {/* Right section - Actions */}
+                    <div className="flex items-center gap-1.5 z-20">
+                        {/* Mobile search button */}
+                        {showSearch && (
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="sm:hidden text-muted-foreground hover:text-foreground"
+                                onClick={() => setIsSearchOpen(true)}
+                            >
+                                <Search size={18} />
+                            </Button>
+                        )}
+
+                        <ModeToggle />
+                    </div>
+                </div>
+            </div>
+
+            {/* Mobile search overlay */}
+            <AnimatePresence>
+                {isSearchOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 bg-background/95 backdrop-blur-xl sm:hidden"
+                    >
+                        <div className="p-4">
+                            <form onSubmit={handleSearchSubmit} className="relative">
+                                <Search
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                                    size={18}
+                                />
+                                <input
+                                    ref={searchInputRef}
+                                    type="text"
+                                    value={searchValue}
+                                    onChange={handleSearchChange}
+                                    placeholder="Buscar posts..."
+                                    className={cn(
+                                        'w-full h-12 pl-10 pr-12 rounded-xl',
+                                        'bg-muted/50 border border-border/50',
+                                        'text-base text-foreground placeholder:text-muted-foreground',
+                                        'focus:outline-none focus:ring-2 focus:ring-ring/50',
+                                    )}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsSearchOpen(false);
+                                        handleSearchClear();
+                                    }}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </form>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
+export { GlobalHeader };
