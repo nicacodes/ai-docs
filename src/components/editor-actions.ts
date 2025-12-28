@@ -3,6 +3,7 @@ import { useStore } from '@nanostores/react';
 import { replaceAll } from '@milkdown/kit/utils';
 import { actions } from 'astro:actions';
 import { inferTitle, loadCurrentDoc } from '@/lib/utils';
+import { preparePassageText } from '@/lib/embedding-utils';
 import { STORAGE_KEY } from '@/constants';
 import {
   $embeddingProgress,
@@ -304,7 +305,9 @@ async function saveDocumentWithEmbeddings() {
       return;
     }
 
-    const embeddingText = `passage: ${rawMarkdown}`;
+    // Preparar texto limpio para embedding (sin sintaxis markdown)
+    const cleanedText = preparePassageText(title, rawMarkdown);
+    const embeddingText = `passage: ${cleanedText}`;
     const embedding = await embedPost({
       postId: saved.id,
       text: embeddingText,
@@ -320,7 +323,7 @@ async function saveDocumentWithEmbeddings() {
       items: [
         {
           chunkIndex: 0,
-          chunkText: rawMarkdown,
+          chunkText: cleanedText,
           embedding,
           modelId: MODEL.modelId,
           device: MODEL.device,
