@@ -1,12 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { actions } from 'astro:actions';
 import { FileText, RefreshCw } from 'lucide-react';
-import { PostCard, type PostCardProps } from './PostCard';
-import { PostCardSkeleton } from './PostCardSkeleton';
+import { PostItem, type PostItemProps } from './PostItem';
+import { PostItemSkeleton } from './PostItemSkeleton';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 
-type Post = Omit<PostCardProps, 'className'>;
+type Post = Omit<PostItemProps, 'className'>;
 
 interface PostListProps {
     initialPosts?: Post[];
@@ -86,14 +86,9 @@ function PostList({ initialPosts = [], className }: PostListProps) {
 
     if (isLoading) {
         return (
-            <div
-                className={cn(
-                    'grid gap-6 sm:grid-cols-2 lg:grid-cols-3',
-                    className,
-                )}
-            >
-                {[...Array(6)].map((_, i) => (
-                    <PostCardSkeleton key={i} />
+            <div className={cn('divide-y divide-border/50', className)}>
+                {[...Array(5)].map((_, i) => (
+                    <PostItemSkeleton key={i} />
                 ))}
             </div>
         );
@@ -121,11 +116,9 @@ function PostList({ initialPosts = [], className }: PostListProps) {
     }
 
     return (
-        <div
-            className={cn('grid gap-6 sm:grid-cols-2 lg:grid-cols-3', className)}
-        >
+        <div className={cn('divide-y divide-border/50', className)}>
             {posts.map((post) => (
-                <PostCard key={post.id} {...post} />
+                <PostItem key={post.id} {...post} />
             ))}
         </div>
     );

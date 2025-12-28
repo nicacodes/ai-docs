@@ -22,18 +22,44 @@ const rows = await db
   .orderBy(sql`${documents.createdAt} DESC`)
   .limit(20);
 
-const initialPosts = rows.map((row) => ({
-  id: row.id,
-  title: row.title,
-  slug: row.slug,
-  excerpt:
-    row.rawMarkdown
-      .replace(/^#.*$/gm, "")
-      .replace(/[#*_`]/g, "")
-      .trim()
-      .slice(0, 160) + (row.rawMarkdown.length > 160 ? "..." : ""),
-  createdAt: row.createdAt,
-}));
+const initialPosts = rows.map((row) => {
+  // Normalize markdown to plain text for excerpt
+  const normalizedText = row.rawMarkdown
+    // Remove HTML tags (like <br />, etc.)
+    .replace(/<[^>]*>/g, " ")
+    // Remove image syntax ![alt](url)
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    // Remove link syntax [text](url) keeping text
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    // Remove code blocks ```...```
+    .replace(/```[\s\S]*?```/g, "")
+    // Remove inline code `code`
+    .replace(/`[^`]*`/g, "")
+    // Remove headers (# ## ### etc)
+    .replace(/^#{1,6}\s+/gm, "")
+    // Remove bold/italic markers **text** or *text* or __text__ or _text_
+    .replace(/(\*\*|__)(.*?)\1/g, "$2")
+    .replace(/(\*|_)(.*?)\1/g, "$2")
+    // Remove blockquotes >
+    .replace(/^>\s*/gm, "")
+    // Remove horizontal rules ---
+    .replace(/^-{3,}$/gm, "")
+    // Remove list markers (- * + numbered)
+    .replace(/^[\s]*[-*+]\s+/gm, "")
+    .replace(/^[\s]*\d+\.\s+/gm, "")
+    // Normalize whitespace
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return {
+    id: row.id,
+    title: row.title,
+    slug: row.slug,
+    excerpt:
+      normalizedText.slice(0, 160) + (normalizedText.length > 160 ? "..." : ""),
+    createdAt: row.createdAt,
+  };
+});
 ---
 
 <Layout title="AI Blog - Inicio">
