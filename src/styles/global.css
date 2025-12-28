@@ -1,5 +1,5 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
+@import "tailwindcss";
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -10,7 +10,7 @@ body {
 h1 {
   font-weight: 900 !important;
   font-family: var(--font-serif);
-  @apply text-gray-700;
+  @apply text-foreground;
   font-size: 34px !important;
 }
 
@@ -132,19 +132,156 @@ h1 {
     @apply bg-background text-foreground;
   }
 
-  /* Improve contrast for Milkdown code blocks */
+  /* Milkdown Editor Styles */
+  .milkdown .ProseMirror {
+    padding: 0 !important;
+    color: var(--foreground);
+  }
+
+  /* Milkdown code editor (CodeMirror) - Light mode */
   .milkdown .cm-editor {
+    background-color: oklch(0.97 0 0);
+    border-radius: 0.5rem;
+
     .cm-line {
-      color: #000 !important;
+      color: oklch(0.2 0 0) !important;
+    }
+
+    .cm-gutters {
+      background-color: oklch(0.95 0 0);
+      border-color: oklch(0.9 0 0);
     }
 
     .cm-activeLineGutter {
-      background-color: #6699ff0b !important;
-      color: #000 !important;
+      background-color: oklch(0.92 0 0) !important;
+      color: oklch(0.2 0 0) !important;
+    }
+
+    .cm-activeLine {
+      background-color: oklch(0.95 0 0);
     }
   }
 
-  .milkdown .ProseMirror {
-    padding: 0 !important;
+  /* Milkdown code editor - Dark mode */
+  .dark .milkdown .cm-editor {
+    background-color: oklch(0.18 0 0);
+
+    .cm-line {
+      color: oklch(0.9 0 0) !important;
+    }
+
+    .cm-gutters {
+      background-color: oklch(0.15 0 0);
+      border-color: oklch(0.25 0 0);
+    }
+
+    .cm-activeLineGutter {
+      background-color: oklch(0.22 0 0) !important;
+      color: oklch(0.85 0 0) !important;
+    }
+
+    .cm-activeLine {
+      background-color: oklch(0.2 0 0);
+    }
   }
 }
+
+/* ===== Milkdown Dark Mode Overrides ===== */
+/* These are outside @layer to override Crepe theme styles */
+html.dark .milkdown,
+.dark .milkdown {
+  /* Core colors */
+  --crepe-color-background: oklch(0.145 0 0) !important;
+  --crepe-color-on-background: oklch(0.9 0 0) !important;
+  --crepe-color-surface: oklch(0.2 0 0) !important;
+  --crepe-color-surface-low: oklch(0.18 0 0) !important;
+  --crepe-color-on-surface: oklch(0.9 0 0) !important;
+  --crepe-color-on-surface-variant: oklch(0.7 0 0) !important;
+  
+  /* Interactive colors */
+  --crepe-color-outline: oklch(0.4 0 0) !important;
+  --crepe-color-primary: oklch(0.7 0 0) !important;
+  --crepe-color-secondary: oklch(0.25 0 0) !important;
+  --crepe-color-on-secondary: oklch(0.9 0 0) !important;
+  
+  /* Inverse colors */
+  --crepe-color-inverse: oklch(0.15 0 0) !important;
+  --crepe-color-on-inverse: oklch(0.9 0 0) !important;
+  
+  /* Code and states */
+  --crepe-color-inline-code: oklch(0.75 0.15 30) !important;
+  --crepe-color-error: oklch(0.65 0.2 25) !important;
+  --crepe-color-hover: oklch(0.25 0 0) !important;
+  --crepe-color-selected: oklch(0.3 0 0) !important;
+  --crepe-color-inline-area: oklch(0.28 0 0) !important;
+  
+  /* Shadows for dark mode */
+  --crepe-shadow-1: 0px 1px 3px 1px rgba(0, 0, 0, 0.4), 0px 1px 2px 0px rgba(0, 0, 0, 0.5) !important;
+  --crepe-shadow-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.4), 0px 1px 2px 0px rgba(0, 0, 0, 0.5) !important;
+  
+  background-color: oklch(0.145 0 0) !important;
+  color: oklch(0.9 0 0) !important;
+}
+
+html.dark .milkdown .editor,
+html.dark .milkdown .ProseMirror,
+html.dark .milkdown [data-milkdown-root],
+.dark .milkdown .editor,
+.dark .milkdown .ProseMirror,
+.dark .milkdown [data-milkdown-root] {
+  background-color: transparent !important;
+  color: oklch(0.9 0 0) !important;
+}
+
+/* Dark mode code blocks */
+html.dark .milkdown code,
+.dark .milkdown code {
+  background-color: oklch(0.25 0 0) !important;
+  color: oklch(0.75 0.15 30) !important;
+}
+
+html.dark .milkdown pre,
+.dark .milkdown pre {
+  background-color: oklch(0.18 0 0) !important;
+}
+
+html.dark .milkdown pre code,
+.dark .milkdown pre code {
+  background-color: transparent !important;
+  color: oklch(0.9 0 0) !important;
+}
+
+/* CodeMirror (code editor) dark mode */
+html.dark .milkdown .cm-editor,
+.dark .milkdown .cm-editor {
+  background-color: oklch(0.18 0 0) !important;
+}
+
+html.dark .milkdown .cm-editor .cm-content,
+.dark .milkdown .cm-editor .cm-content {
+  color: oklch(0.9 0 0) !important;
+}
+
+html.dark .milkdown .cm-editor .cm-line,
+.dark .milkdown .cm-editor .cm-line {
+  color: oklch(0.9 0 0) !important;
+}
+
+html.dark .milkdown .cm-editor .cm-gutters,
+.dark .milkdown .cm-editor .cm-gutters {
+  background-color: oklch(0.15 0 0) !important;
+  border-color: oklch(0.25 0 0) !important;
+  color: oklch(0.6 0 0) !important;
+}
+
+html.dark .milkdown .cm-editor .cm-activeLineGutter,
+.dark .milkdown .cm-editor .cm-activeLineGutter {
+  background-color: oklch(0.22 0 0) !important;
+  color: oklch(0.85 0 0) !important;
+}
+
+html.dark .milkdown .cm-editor .cm-activeLine,
+.dark .milkdown .cm-editor .cm-activeLine {
+  background-color: oklch(0.2 0 0) !important;
+}
+

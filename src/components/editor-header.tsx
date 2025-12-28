@@ -11,6 +11,7 @@ import { useStore } from '@nanostores/react';
 import { motion, AnimatePresence } from 'motion/react';
 import { $modelStatus, $saveStatus } from '@/store/editor-store';
 import { BtnSaveDoc } from './btn-save-doc';
+import { ModeToggle } from './ui/mode-toggle';
 import { useEditorActions, ensureModelReady } from './editor-actions';
 import { Button } from './ui/button';
 import { DocumentInfo } from './document-info';
@@ -138,6 +139,7 @@ function ManagementBar() {
             </div>
           </div>
           <div className='flex items-center gap-2 z-20'>
+            <ModeToggle />
             <BtnSaveDoc />
           </div>
         </div>
