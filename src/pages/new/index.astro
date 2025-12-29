@@ -28,15 +28,18 @@ export const prerender = false;
   import { keymap } from "@milkdown/prose/keymap";
   import { editorInstance, setCurrentTitle } from "@/store/editor-store";
   import { disposeEmbeddingsClient } from "@/scripts/ai-embeddings";
+  import { loadDraftContent, saveDraftContent } from "@/lib/utils";
 
   let crepeInstance: Crepe | null = null;
   let updateDebounceId: number | null = null;
+  let saveDebounceId: number | null = null;
 
   // Debounce para evitar procesamiento excesivo en cada keystroke
   function debounce<T extends (...args: any[]) => void>(fn: T, ms: number): T {
+    let timeoutId: number | null = null;
     return ((...args: any[]) => {
-      if (updateDebounceId) window.clearTimeout(updateDebounceId);
-      updateDebounceId = window.setTimeout(() => fn(...args), ms);
+      if (timeoutId) window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => fn(...args), ms);
     }) as T;
   }
 
@@ -46,9 +49,13 @@ export const prerender = false;
       crepeInstance = null;
     }
 
+    // Intentar cargar draft guardado
+    const savedDraft = loadDraftContent();
+    const initialContent = savedDraft || "# ";
+
     crepeInstance = new Crepe({
       root: "#app",
-      defaultValue: "# ",
+      defaultValue: initialContent,
       featureConfigs: {
         placeholder: {
           text: "Nueva pagina",
@@ -82,7 +89,7 @@ export const prerender = false;
       ]);
     });
 
-    // Handler con debounce para evitar spam en cada keystroke
+    // Handler con debounce para título
     const handleUpdate = debounce((ctx: any) => {
       const view = ctx.get(editorViewCtx);
       const { state } = view;
@@ -106,14 +113,40 @@ export const prerender = false;
       // Actualizar título solo si cambió
       const textoTitulo = firstChild.textContent.trim() || "Sin título";
       setCurrentTitle(textoTitulo);
-    }, 300); // 300ms debounce
+    }, 300);
+
+    // Handler con debounce para guardar draft (más lento para no saturar localStorage)
+    const saveDraft = debounce(async () => {
+      if (!crepeInstance) return;
+      try {
+        const markdown = await crepeInstance.getMarkdown();
+        saveDraftContent(markdown);
+      } catch (e) {
+        console.warn("Error obteniendo markdown para draft:", e);
+      }
+    }, 1000); // Guardar cada 1 segundo después de cambios
 
     crepeInstance.on((api) => {
-      api.updated(handleUpdate);
+      api.updated((ctx) => {
+        handleUpdate(ctx);
+        saveDraft();
+      });
     });
 
     await crepeInstance.create();
     editorInstance.set(crepeInstance);
+
+    // Si había un draft, actualizar el título
+    if (savedDraft) {
+      const lines = savedDraft.split(/\r?\n/);
+      for (const line of lines) {
+        const m = /^\s*#\s+(.+)\s*$/.exec(line);
+        if (m?.[1]) {
+          setCurrentTitle(m[1].trim());
+          break;
+        }
+      }
+    }
   }
 
   initEditor();
@@ -123,6 +156,10 @@ export const prerender = false;
     if (updateDebounceId) {
       window.clearTimeout(updateDebounceId);
       updateDebounceId = null;
+    }
+    if (saveDebounceId) {
+      window.clearTimeout(saveDebounceId);
+      saveDebounceId = null;
     }
 
     if (crepeInstance) {
