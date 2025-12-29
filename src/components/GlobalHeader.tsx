@@ -1,15 +1,15 @@
 import { useEffect, useState, useRef } from 'react';
+import { useStore } from '@nanostores/react';
 import { Search, HomeIcon, X, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ModeToggle } from './ui/mode-toggle';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
+import { $isSearching } from '@/store/search-store';
 
 interface GlobalHeaderProps {
     showSearch?: boolean;
     showHome?: boolean;
-    isLoading?: boolean;
-    isSearching?: boolean;
     initialQuery?: string;
     className?: string;
 }
@@ -20,21 +20,12 @@ function GlobalHeader({
     initialQuery = '',
     className
 }: GlobalHeaderProps) {
+    const isSearching = useStore($isSearching);
     const [isScrolled, setIsScrolled] = useState(false);
     const [searchValue, setSearchValue] = useState(initialQuery);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const [localSearching, setLocalSearching] = useState(false);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const desktopInputRef = useRef<HTMLInputElement>(null);
-
-    // Listen for search state changes from SearchResults component
-    useEffect(() => {
-        const handleSearchState = (e: CustomEvent<boolean>) => {
-            setLocalSearching(e.detail);
-        };
-        window.addEventListener('search:state' as any, handleSearchState);
-        return () => window.removeEventListener('search:state' as any, handleSearchState);
-    }, []);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -121,7 +112,7 @@ function GlobalHeader({
                             <div className="relative rounded-lg p-px overflow-hidden">
                                 {/* Animated border when searching */}
                                 <AnimatePresence>
-                                    {localSearching && (
+                                    {isSearching && (
                                         <motion.div
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1, rotate: 360 }}
@@ -145,11 +136,11 @@ function GlobalHeader({
                                 {/* Inner container with solid background to mask the gradient */}
                                 <div className={cn(
                                     'relative z-10 flex items-center rounded-lg',
-                                    localSearching ? 'bg-background' : 'bg-muted/40',
+                                    isSearching ? 'bg-background' : 'bg-muted/40',
                                     'transition-all duration-200',
-                                    !localSearching && 'hover:bg-muted/50',
+                                    !isSearching && 'hover:bg-muted/50',
                                 )}>
-                                    {localSearching ? (
+                                    {isSearching ? (
                                         <Sparkles
                                             className="absolute left-3 top-1/2 -translate-y-1/2 text-primary animate-pulse"
                                             size={15}
@@ -220,7 +211,7 @@ function GlobalHeader({
                                 {/* Mobile search input with animated border */}
                                 <div className="relative overflow-hidden rounded-xl p-px">
                                     <AnimatePresence>
-                                        {localSearching && (
+                                        {isSearching && (
                                             <motion.div
                                                 initial={{ opacity: 0 }}
                                                 animate={{ opacity: 1, rotate: 360 }}
@@ -243,10 +234,10 @@ function GlobalHeader({
                                     </AnimatePresence>
                                     <div className={cn(
                                         'relative z-10 flex items-center',
-                                        localSearching ? 'bg-background' : 'bg-muted/50',
+                                        isSearching ? 'bg-background' : 'bg-muted/50',
                                         'border border-border/50 rounded-xl',
                                     )}>
-                                        {localSearching ? (
+                                        {isSearching ? (
                                             <Sparkles
                                                 className="absolute left-3 top-1/2 -translate-y-1/2 text-primary animate-pulse"
                                                 size={18}

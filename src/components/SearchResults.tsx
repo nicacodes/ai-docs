@@ -6,25 +6,24 @@ import { PostItem } from './PostItem';
 import { SearchResultSkeleton } from './SearchResultSkeleton';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
-
-interface SearchResult {
-    id: string;
-    title: string;
-    slug: string;
-    excerpt: string;
-    similarity: number;
-    createdAt: Date;
-}
+import {
+    startSearch,
+    setGeneratingEmbedding,
+    setSearchingPhase,
+    setSearchProgress,
+    finishSearch,
+    setSearchError,
+    resetSearch,
+    type SearchResult,
+    type SearchPhase,
+} from '@/store/search-store';
 
 interface SearchResultsProps {
     query: string;
-    onSearchStateChange?: (isSearching: boolean) => void;
     className?: string;
 }
 
-type SearchPhase = 'idle' | 'loading-model' | 'generating-embedding' | 'searching' | 'done' | 'error';
-
-function SearchResults({ query, onSearchStateChange, className }: SearchResultsProps) {
+function SearchResults({ query, className }: SearchResultsProps) {
     const [results, setResults] = useState<SearchResult[]>([]);
     const [phase, setPhase] = useState<SearchPhase>('idle');
     const [error, setError] = useState<string | null>(null);
@@ -34,20 +33,22 @@ function SearchResults({ query, onSearchStateChange, className }: SearchResultsP
         if (!searchQuery.trim()) {
             setResults([]);
             setPhase('idle');
+            resetSearch();
             return;
         }
 
         setError(null);
         setPhase('loading-model');
         setProgressInfo('Cargando modelo de embeddings...');
-        onSearchStateChange?.(true);
-        // Notify GlobalHeader of search state
-        window.dispatchEvent(new CustomEvent('search:state', { detail: true }));
+
+        // Update global store - notifies GlobalHeader
+        startSearch(searchQuery);
 
         try {
             // 1) Generar embedding de la query
             setPhase('generating-embedding');
             setProgressInfo('Generando embedding de la búsqueda...');
+            setGeneratingEmbedding();
 
             const queryEmbedding = await embedQuery({
                 query: searchQuery,
@@ -55,6 +56,7 @@ function SearchResults({ query, onSearchStateChange, className }: SearchResultsP
                     if (p?.status === 'progress' && p?.file) {
                         const percent = Math.round((p.loaded / p.total) * 100);
                         setProgressInfo(`Descargando modelo: ${percent}%`);
+                        setSearchProgress({ label: `Descargando modelo: ${percent}%`, percent });
                     }
                 },
             });
@@ -62,6 +64,7 @@ function SearchResults({ query, onSearchStateChange, className }: SearchResultsP
             // 2) Realizar búsqueda semántica
             setPhase('searching');
             setProgressInfo('Buscando documentos similares...');
+            setSearchingPhase();
 
             const result = await actions.documents.semanticSearch({
                 queryEmbedding,
@@ -72,28 +75,34 @@ function SearchResults({ query, onSearchStateChange, className }: SearchResultsP
                 throw new Error(result.error.message || 'Error en la búsqueda');
             }
 
-            setResults(
-                result.data.map((r) => ({
-                    ...r,
-                    createdAt: new Date(r.createdAt),
-                }))
-            );
+            const mappedResults = result.data.map((r) => ({
+                ...r,
+                createdAt: new Date(r.createdAt),
+            }));
+
+            setResults(mappedResults);
             setPhase('done');
+
+            // Update global store with results
+            finishSearch(mappedResults);
         } catch (err) {
             console.error('Search error:', err);
-            setError(err instanceof Error ? err.message : 'Error desconocido');
+            const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+            setError(errorMessage);
             setPhase('error');
-        } finally {
-            onSearchStateChange?.(false);
-            // Notify GlobalHeader search ended
-            window.dispatchEvent(new CustomEvent('search:state', { detail: false }));
+            setSearchError(errorMessage);
         }
-    }, [onSearchStateChange]);
+    }, []);
 
     useEffect(() => {
         if (query) {
             performSearch(query);
         }
+
+        // Cleanup on unmount
+        return () => {
+            resetSearch();
+        };
     }, [query, performSearch]);
 
     const isLoading = phase === 'loading-model' || phase === 'generating-embedding' || phase === 'searching';

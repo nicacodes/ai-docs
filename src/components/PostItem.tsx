@@ -37,7 +37,6 @@ function estimateReadTime(text: string): number {
 }
 
 function PostItem({
-    id,
     title,
     slug,
     excerpt,
