@@ -65,13 +65,6 @@ function PostList({ initialPosts = [], className }: PostListProps) {
         [fetchPosts],
     );
 
-    // Expose search handler to parent via custom event
-    useEffect(() => {
-        const handler = (e: CustomEvent<string>) => handleSearch(e.detail);
-        window.addEventListener('blog:search' as any, handler);
-        return () => window.removeEventListener('blog:search' as any, handler);
-    }, [handleSearch]);
-
     if (error) {
         return (
             <div className="flex flex-col items-center justify-center py-16 text-center">
