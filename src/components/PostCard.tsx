@@ -10,7 +10,6 @@ import {
 import { cn } from '@/lib/utils';
 
 interface PostCardProps {
-    id: string;
     title: string;
     slug: string;
     excerpt: string;
@@ -33,7 +32,6 @@ function estimateReadTime(text: string): number {
 }
 
 function PostCard({
-    id,
     title,
     slug,
     excerpt,
