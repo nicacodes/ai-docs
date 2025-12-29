@@ -1,10 +1,11 @@
-import { Command, Loader2, Save } from 'lucide-react';
+import { Command, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCallback } from 'react';
 import { useStore } from '@nanostores/react';
 import { $saveStatus } from '@/store/editor-store';
-import { useEditorActions, useSaveShortcut } from '../lib/editor-actions';
+import { useEditorActions, useSaveShortcut } from '@/lib/editor-actions';
 import { cn } from '@/lib/utils';
+import { Spinner } from '@/components/ui/spinner';
 
 export const BtnSaveDoc = () => {
   const { save, isBusy, canSave } = useEditorActions();
@@ -40,7 +41,7 @@ export const BtnSaveDoc = () => {
                 exit={{ opacity: 0, rotate: 90, scale: 0.5 }}
                 className='absolute inset-0'
               >
-                <Loader2 className='w-4 h-4 animate-spin' />
+                <Spinner />
               </motion.div>
             ) : (
               <motion.div
