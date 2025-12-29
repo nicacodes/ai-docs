@@ -17,9 +17,8 @@ function PostList({ initialPosts = [], className }: PostListProps) {
     const [posts, setPosts] = useState<Post[]>(initialPosts);
     const [isLoading, setIsLoading] = useState(initialPosts.length === 0);
     const [error, setError] = useState<string | null>(null);
-    const [searchQuery, _] = useState('');
 
-    const fetchPosts = useCallback(async (search?: string) => {
+    const fetchPosts = useCallback(async () => {
         setIsLoading(true);
         setError(null);
 
@@ -27,7 +26,6 @@ function PostList({ initialPosts = [], className }: PostListProps) {
             const result = await actions.documents.list({
                 limit: 20,
                 offset: 0,
-                search: search || undefined,
             });
 
             if (result.error) {
@@ -44,7 +42,7 @@ function PostList({ initialPosts = [], className }: PostListProps) {
                     createdAt: new Date(post.createdAt!),
                 })),
             );
-        } catch (e) {
+        } catch {
             setError('Error de conexión');
         } finally {
             setIsLoading(false);
@@ -61,7 +59,7 @@ function PostList({ initialPosts = [], className }: PostListProps) {
         return (
             <div className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="text-destructive mb-4">{error}</div>
-                <Button variant="outline" onClick={() => fetchPosts(searchQuery)}>
+                <Button variant="outline" onClick={() => fetchPosts()}>
                     <RefreshCw size={16} />
                     Reintentar
                 </Button>
@@ -87,15 +85,11 @@ function PostList({ initialPosts = [], className }: PostListProps) {
                 </div>
                 <h3 className="text-lg font-semibold mb-2">No hay posts aún</h3>
                 <p className="text-muted-foreground mb-6 max-w-sm">
-                    {searchQuery
-                        ? `No se encontraron posts para "${searchQuery}"`
-                        : 'Crea tu primer post y comienza a compartir tus ideas con el mundo.'}
+                    Crea tu primer post y comienza a compartir tus ideas con el mundo.
                 </p>
-                {!searchQuery && (
-                    <Button asChild>
-                        <a href="/new">Crear mi primer post</a>
-                    </Button>
-                )}
+                <Button asChild>
+                    <a href="/new">Crear mi primer post</a>
+                </Button>
             </div>
         );
     }
