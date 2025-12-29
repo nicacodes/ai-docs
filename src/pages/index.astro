@@ -2,10 +2,10 @@
 import Layout from "@/layouts/layout.astro";
 import { GlobalHeader } from "@/components/GlobalHeader";
 import { PostList } from "@/components/PostList";
+import { NewPostButton } from "@/components/NewPostButton";
 import { getDb } from "@/db/client";
 import { documents } from "@/db/schema";
 import { sql } from "drizzle-orm";
-import { FilePlus } from "lucide-react";
 
 export const prerender = false;
 
@@ -79,13 +79,10 @@ const initialPosts = rows.map((row) => {
             Explora ideas, tutoriales y más
           </p>
         </div>
-        <a
-          href="/new"
-          class="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-foreground text-background font-medium text-sm hover:bg-foreground/90 transition-colors shadow-sm"
-        >
-          <FilePlus size={16} />
-          <span class="hidden sm:inline">Nuevo Post</span>
-        </a>
+        <NewPostButton
+          client:load
+          className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-foreground text-background font-medium text-sm hover:bg-foreground/90 transition-colors shadow-sm"
+        />
       </header>
 
       <PostList client:load initialPosts={initialPosts} />
