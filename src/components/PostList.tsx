@@ -17,7 +17,7 @@ function PostList({ initialPosts = [], className }: PostListProps) {
     const [posts, setPosts] = useState<Post[]>(initialPosts);
     const [isLoading, setIsLoading] = useState(initialPosts.length === 0);
     const [error, setError] = useState<string | null>(null);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, _] = useState('');
 
     const fetchPosts = useCallback(async (search?: string) => {
         setIsLoading(true);
@@ -56,14 +56,6 @@ function PostList({ initialPosts = [], className }: PostListProps) {
             fetchPosts();
         }
     }, [fetchPosts, initialPosts.length]);
-
-    const handleSearch = useCallback(
-        (query: string) => {
-            setSearchQuery(query);
-            fetchPosts(query);
-        },
-        [fetchPosts],
-    );
 
     if (error) {
         return (
