@@ -21,11 +21,16 @@ function GlobalHeader({
     className
 }: GlobalHeaderProps) {
     const isSearching = useStore($isSearching);
+    const [isMounted, setIsMounted] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
     const [searchValue, setSearchValue] = useState(initialQuery);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const desktopInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -112,7 +117,7 @@ function GlobalHeader({
                             <div className="relative rounded-lg p-px overflow-hidden">
                                 {/* Animated border when searching */}
                                 <AnimatePresence>
-                                    {isSearching && (
+                                    {isMounted && isSearching && (
                                         <motion.div
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1, rotate: 360 }}
@@ -136,11 +141,11 @@ function GlobalHeader({
                                 {/* Inner container with solid background to mask the gradient */}
                                 <div className={cn(
                                     'relative z-10 flex items-center rounded-lg',
-                                    isSearching ? 'bg-background' : 'bg-muted/40',
+                                    isMounted && isSearching ? 'bg-background' : 'bg-muted/40',
                                     'transition-all duration-200',
-                                    !isSearching && 'hover:bg-muted/50',
+                                    !(isMounted && isSearching) && 'hover:bg-muted/50',
                                 )}>
-                                    {isSearching ? (
+                                    {isMounted && isSearching ? (
                                         <Sparkles
                                             className="absolute left-3 top-1/2 -translate-y-1/2 text-primary animate-pulse"
                                             size={15}
@@ -211,7 +216,7 @@ function GlobalHeader({
                                 {/* Mobile search input with animated border */}
                                 <div className="relative overflow-hidden rounded-xl p-px">
                                     <AnimatePresence>
-                                        {isSearching && (
+                                        {isMounted && isSearching && (
                                             <motion.div
                                                 initial={{ opacity: 0 }}
                                                 animate={{ opacity: 1, rotate: 360 }}
@@ -234,10 +239,10 @@ function GlobalHeader({
                                     </AnimatePresence>
                                     <div className={cn(
                                         'relative z-10 flex items-center',
-                                        isSearching ? 'bg-background' : 'bg-muted/50',
+                                        isMounted && isSearching ? 'bg-background' : 'bg-muted/50',
                                         'border border-border/50 rounded-xl',
                                     )}>
-                                        {isSearching ? (
+                                        {isMounted && isSearching ? (
                                             <Sparkles
                                                 className="absolute left-3 top-1/2 -translate-y-1/2 text-primary animate-pulse"
                                                 size={18}
