@@ -3,6 +3,7 @@ import { useStore } from "@nanostores/react";
 import { replaceAll } from "@milkdown/kit/utils";
 import { actions } from "astro:actions";
 import { inferTitle, loadCurrentDoc, clearDraftContent } from "@/lib/utils";
+import { exportToPdf } from "@/lib/pdf-export";
 import { preparePassageText } from "@/lib/embedding-utils";
 import { STORAGE_KEY } from "@/constants";
 import {
@@ -96,10 +97,6 @@ function normalizeProgressPayload(payload: unknown): EditorProgress {
     label: message || "Preparando",
     percent: pct,
   };
-}
-
-function saveCurrentDoc(doc: { id: string; slug: string }) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
 }
 
 function clearCurrentDoc() {
@@ -239,36 +236,6 @@ async function exportMarkdownFile() {
   downloadTextFile(filename, rawMarkdown, "text/markdown;charset=utf-8");
 }
 
-async function exportPdfFile() {
-  const crepe = editorInstance.get();
-  if (!crepe) return;
-  const rawMarkdown = await crepe.getMarkdown();
-  setLastMarkdownSnapshot(rawMarkdown);
-  const title = inferTitle(rawMarkdown);
-
-  const w = window.open("", "_blank", "noopener,noreferrer");
-  if (!w) return;
-
-  w.document.open();
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8" />`);
-  w.document.write(`<title>${title}</title>`);
-  w.document.write(
-    `<style>body{font-family:ui-sans-serif,system-ui; padding:24px;} pre{white-space:pre-wrap; word-break:break-word; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px; line-height:1.5}</style>`
-  );
-  w.document.write(`</head><body>`);
-  w.document.write(`<h1>${title}</h1>`);
-  const safe = rawMarkdown
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-  w.document.write(`<pre>${safe}</pre>`);
-  w.document.write(`</body></html>`);
-  w.document.close();
-
-  w.focus();
-  w.print();
-}
-
 async function saveDocumentWithEmbeddings() {
   const crepe = editorInstance.get();
   if (!crepe) {
@@ -388,7 +355,7 @@ export function useEditorActions() {
   }, []);
 
   const handleExportPdf = useCallback(async () => {
-    await exportPdfFile();
+    await exportToPdf();
   }, []);
 
   const isBusy =
