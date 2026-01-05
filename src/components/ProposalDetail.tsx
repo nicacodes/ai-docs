@@ -193,7 +193,7 @@ export default function ProposalDetail({
         setActionError('Error al retirar la propuesta');
       } else {
         setActionSuccess('Propuesta retirada.');
-        setTimeout(() => (window.location.href = '/proposals'), 1500);
+        setTimeout(() => (window.location.href = '/profile'), 1500);
       }
     } catch {
       setActionError('Error de conexión');
@@ -210,7 +210,7 @@ export default function ProposalDetail({
           <div className='flex items-center justify-between gap-4 mb-4'>
             <div className='flex items-center gap-3'>
               <a
-                href='/proposals'
+                href='/profile'
                 className='p-2 rounded-lg hover:bg-accent transition-colors'
                 title='Volver'
               >

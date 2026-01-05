@@ -1,0 +1,43 @@
+---
+/**
+ * Página de Perfil de Usuario
+ *
+ * Permite al usuario gestionar su perfil, ver sus publicaciones
+ * y administrar propuestas de cambios.
+ */
+import Layout from '@/layouts/layout.astro';
+import ProfilePage from '@/components/ProfilePage.tsx';
+import { getDocumentsByAuthor } from '@/db/documents';
+import { listReceivedProposals, listSentProposals } from '@/db/proposals';
+
+const session = Astro.locals.session;
+const user = Astro.locals.user;
+
+if (!session || !user) {
+  return Astro.redirect('/login?redirect=/profile');
+}
+
+// Obtener publicaciones del usuario
+const userPosts = await getDocumentsByAuthor(user.id);
+
+// Obtener propuestas
+const receivedProposals = await listReceivedProposals(user.id);
+const sentProposals = await listSentProposals(user.id);
+
+const profileData = {
+  user: {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    image: user.image ?? null,
+    createdAt: user.createdAt,
+  },
+  posts: userPosts,
+  receivedProposals,
+  sentProposals,
+};
+---
+
+<Layout title='Mi Perfil'>
+  <ProfilePage client:load profileData={profileData} />
+</Layout>

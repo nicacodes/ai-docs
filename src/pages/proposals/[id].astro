@@ -13,13 +13,13 @@ if (!session || !user) {
 const { id } = Astro.params;
 
 if (!id) {
-  return Astro.redirect('/proposals');
+  return Astro.redirect('/profile');
 }
 
 const proposal = await getProposalById(id);
 
 if (!proposal) {
-  return Astro.redirect('/proposals');
+  return Astro.redirect('/profile');
 }
 
 // Check if user is author of the document or the proposer
@@ -27,7 +27,7 @@ const isAuthor = proposal.authorId === user.id;
 const isProposer = proposal.proposerId === user.id;
 
 if (!isAuthor && !isProposer) {
-  return Astro.redirect('/proposals');
+  return Astro.redirect('/profile');
 }
 ---
 

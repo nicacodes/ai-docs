@@ -23,6 +23,7 @@ const PROTECTED_ROUTES = [
   '/new', // Crear nuevo documento
   '/edit/', // Editar documento
   '/proposals', // Lista de propuestas
+  '/profile', // Perfil de usuario
 ];
 
 // Verificar si una ruta es pública

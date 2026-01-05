@@ -163,6 +163,32 @@ export async function listDocuments(
   return (await query) as DocumentRow[];
 }
 
+/**
+ * Obtiene todos los documentos de un autor específico.
+ */
+export async function getDocumentsByAuthor(
+  authorId: string,
+): Promise<DocumentRow[]> {
+  const db = getDb();
+
+  const rows = await db
+    .select({
+      id: documents.id,
+      title: documents.title,
+      slug: documents.slug,
+      rawMarkdown: documents.rawMarkdown,
+      metadata: documents.metadata,
+      authorId: documents.authorId,
+      createdAt: documents.createdAt,
+      updatedAt: documents.updatedAt,
+    })
+    .from(documents)
+    .where(eq(documents.authorId, authorId))
+    .orderBy(sql`${documents.createdAt} DESC`);
+
+  return rows as DocumentRow[];
+}
+
 // ============================================================================
 // Mutations
 // ============================================================================
