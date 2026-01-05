@@ -1,49 +1,49 @@
 ---
-import { Font } from "astro:assets";
-import "../styles/global.css";
+import { Font } from 'astro:assets';
+import '../styles/global.css';
 
 interface Props {
   title?: string;
 }
 
-let { title = "AI blog" } = Astro.props;
+let { title = 'AI Docs' } = Astro.props;
 ---
 
 <script is:inline>
   const getThemePreference = () => {
-    if (typeof localStorage !== "undefined" && localStorage.getItem("theme")) {
-      return localStorage.getItem("theme");
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
+      return localStorage.getItem('theme');
     }
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light';
   };
-  const isDark = getThemePreference() === "dark";
-  document.documentElement.classList[isDark ? "add" : "remove"]("dark");
+  const isDark = getThemePreference() === 'dark';
+  document.documentElement.classList[isDark ? 'add' : 'remove']('dark');
 
-  if (typeof localStorage !== "undefined") {
+  if (typeof localStorage !== 'undefined') {
     const observer = new MutationObserver(() => {
-      const isDark = document.documentElement.classList.contains("dark");
-      localStorage.setItem("theme", isDark ? "dark" : "light");
+      const isDark = document.documentElement.classList.contains('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
     });
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["class"],
+      attributeFilter: ['class'],
     });
   }
 </script>
 
-<html lang="es">
+<html lang='es'>
   <head>
-    <meta charset="utf-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width" />
-    <meta name="generator" content={Astro.generator} />
-    <Font cssVariable="--font-inter" preload />
+    <meta charset='utf-8' />
+    <link rel='icon' type='image/svg+xml' href='/favicon.svg' />
+    <meta name='viewport' content='width=device-width' />
+    <meta name='generator' content={Astro.generator} />
+    <Font cssVariable='--font-inter' preload />
     <title>{title}</title>
   </head>
-  <body class="min-h-screen w-full bg-background">
-    <div class="mx-auto w-full max-w-190 sm:p-9">
+  <body class='min-h-screen w-full bg-background'>
+    <div class='mx-auto w-full max-w-190 sm:p-9'>
       <slot />
     </div>
   </body>

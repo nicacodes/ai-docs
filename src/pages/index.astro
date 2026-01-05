@@ -1,11 +1,11 @@
 ---
-import Layout from "@/layouts/layout.astro";
-import { GlobalHeader } from "@/components/GlobalHeader";
-import { PostList } from "@/components/PostList";
-import { NewPostButton } from "@/components/NewPostButton";
-import { getDb } from "@/db/client";
-import { documents } from "@/db/schema";
-import { sql } from "drizzle-orm";
+import Layout from '@/layouts/layout.astro';
+import { GlobalHeader } from '@/components/GlobalHeader';
+import { PostList } from '@/components/PostList';
+import { NewPostButton } from '@/components/NewPostButton';
+import { getDb } from '@/db/client';
+import { documents } from '@/db/schema';
+import { sql } from 'drizzle-orm';
 
 export const prerender = false;
 
@@ -27,29 +27,29 @@ const initialPosts = rows.map((row) => {
   // Normalize markdown to plain text for excerpt
   const normalizedText = row.rawMarkdown
     // Remove HTML tags (like <br />, etc.)
-    .replace(/<[^>]*>/g, " ")
+    .replace(/<[^>]*>/g, ' ')
     // Remove image syntax ![alt](url)
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
     // Remove link syntax [text](url) keeping text
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     // Remove code blocks ```...```
-    .replace(/```[\s\S]*?```/g, "")
+    .replace(/```[\s\S]*?```/g, '')
     // Remove inline code `code`
-    .replace(/`[^`]*`/g, "")
+    .replace(/`[^`]*`/g, '')
     // Remove headers (# ## ### etc)
-    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^#{1,6}\s+/gm, '')
     // Remove bold/italic markers **text** or *text* or __text__ or _text_
-    .replace(/(\*\*|__)(.*?)\1/g, "$2")
-    .replace(/(\*|_)(.*?)\1/g, "$2")
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')
+    .replace(/(\*|_)(.*?)\1/g, '$2')
     // Remove blockquotes >
-    .replace(/^>\s*/gm, "")
+    .replace(/^>\s*/gm, '')
     // Remove horizontal rules ---
-    .replace(/^-{3,}$/gm, "")
+    .replace(/^-{3,}$/gm, '')
     // Remove list markers (- * + numbered)
-    .replace(/^[\s]*[-*+]\s+/gm, "")
-    .replace(/^[\s]*\d+\.\s+/gm, "")
+    .replace(/^[\s]*[-*+]\s+/gm, '')
+    .replace(/^[\s]*\d+\.\s+/gm, '')
     // Normalize whitespace
-    .replace(/\s+/g, " ")
+    .replace(/\s+/g, ' ')
     .trim();
 
   return {
@@ -57,31 +57,31 @@ const initialPosts = rows.map((row) => {
     title: row.title,
     slug: row.slug,
     excerpt:
-      normalizedText.slice(0, 160) + (normalizedText.length > 160 ? "..." : ""),
+      normalizedText.slice(0, 160) + (normalizedText.length > 160 ? '...' : ''),
     createdAt: row.createdAt,
   };
 });
 ---
 
-<Layout title="AI Blog - Inicio">
-  <div class="space-y-6">
+<Layout title='AI Blog - Inicio'>
+  <div class='space-y-6'>
     <GlobalHeader client:load />
 
-    <main class="px-1 mt-16">
-      <header class="mb-8 flex items-end justify-between gap-4">
+    <main class='px-1 mt-16'>
+      <header class='mb-8 flex items-end justify-between gap-4'>
         <div>
           <h1
-            class="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent"
+            class='text-3xl sm:text-4xl font-bold bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent'
           >
-            Últimos Posts
+            Últimas documentaciones
           </h1>
-          <p class="text-muted-foreground mt-2 text-base sm:text-lg">
+          <p class='text-muted-foreground mt-2 text-base sm:text-lg'>
             Explora ideas, tutoriales y más
           </p>
         </div>
         <NewPostButton
           client:load
-          className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-foreground text-background font-medium text-sm hover:bg-foreground/90 transition-colors shadow-sm"
+          className='shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-foreground text-background font-medium text-sm hover:bg-foreground/90 transition-colors shadow-sm'
         />
       </header>
 
