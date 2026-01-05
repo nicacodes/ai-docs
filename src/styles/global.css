@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -56,72 +56,74 @@ h1 {
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.6rem;
+  --background: #ffffff;
+  --foreground: #020817;
+  --card: #ffffff;
+  --card-foreground: #020817;
+  --popover: #ffffff;
+  --popover-foreground: #020817;
+  --primary: #0f172a;
+  --primary-foreground: #f8fafc;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --destructive: #ef4444;
+  --destructive-foreground: #f8fafc;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #020817;
+  --chart-1: #e76e50;
+  --chart-2: #2a9d90;
+  --chart-3: #274754;
+  --chart-4: #e8c468;
+  --chart-5: #f4a462;
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #020817;
+  --foreground: #f8fafc;
+  --card: #0f172a;
+  --card-foreground: #f8fafc;
+  --popover: #0f172a;
+  --popover-foreground: #f8fafc;
+  --primary: #f8fafc;
+  --primary-foreground: #0f172a;
+  --secondary: #1e293b;
+  --secondary-foreground: #f8fafc;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #1e293b;
+  --accent-foreground: #f8fafc;
+  --destructive: #f87171;
+  --destructive-foreground: #450a0a;
+  --border: #1e293b;
+  --input: #1e293b;
+  --ring: #cbd5e1;
+  --chart-1: #2662d9;
+  --chart-2: #2eb88a;
+  --chart-3: #e88c30;
+  --chart-4: #af57db;
+  --chart-5: #e23670;
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
 @layer base {
@@ -140,48 +142,48 @@ h1 {
 
   /* Milkdown code editor (CodeMirror) - Light mode */
   .milkdown .cm-editor {
-    background-color: oklch(0.97 0 0);
+    background-color: #f1f5f9;
     border-radius: 0.5rem;
 
     .cm-line {
-      color: oklch(0.2 0 0) !important;
+      color: #020817 !important;
     }
 
     .cm-gutters {
-      background-color: oklch(0.95 0 0);
-      border-color: oklch(0.9 0 0);
+      background-color: #e2e8f0;
+      border-color: #cbd5e1;
     }
 
     .cm-activeLineGutter {
-      background-color: oklch(0.92 0 0) !important;
-      color: oklch(0.2 0 0) !important;
+      background-color: #e2e8f0 !important;
+      color: #020817 !important;
     }
 
     .cm-activeLine {
-      background-color: oklch(0.95 0 0);
+      background-color: #f1f5f9;
     }
   }
 
   /* Milkdown code editor - Dark mode */
   .dark .milkdown .cm-editor {
-    background-color: oklch(0.18 0 0);
+    background-color: #0f172a;
 
     .cm-line {
-      color: oklch(0.9 0 0) !important;
+      color: #e2e8f0 !important;
     }
 
     .cm-gutters {
-      background-color: oklch(0.15 0 0);
-      border-color: oklch(0.25 0 0);
+      background-color: #020817;
+      border-color: #1e293b;
     }
 
     .cm-activeLineGutter {
-      background-color: oklch(0.22 0 0) !important;
-      color: oklch(0.85 0 0) !important;
+      background-color: #1e293b !important;
+      color: #f8fafc !important;
     }
 
     .cm-activeLine {
-      background-color: oklch(0.2 0 0);
+      background-color: #1e293b;
     }
   }
 }
@@ -191,36 +193,38 @@ h1 {
 html.dark .milkdown,
 .dark .milkdown {
   /* Core colors */
-  --crepe-color-background: oklch(0.145 0 0) !important;
-  --crepe-color-on-background: oklch(0.9 0 0) !important;
-  --crepe-color-surface: oklch(0.2 0 0) !important;
-  --crepe-color-surface-low: oklch(0.18 0 0) !important;
-  --crepe-color-on-surface: oklch(0.9 0 0) !important;
-  --crepe-color-on-surface-variant: oklch(0.7 0 0) !important;
-  
+  --crepe-color-background: #020817 !important;
+  --crepe-color-on-background: #f8fafc !important;
+  --crepe-color-surface: #0f172a !important;
+  --crepe-color-surface-low: #020817 !important;
+  --crepe-color-on-surface: #f8fafc !important;
+  --crepe-color-on-surface-variant: #94a3b8 !important;
+
   /* Interactive colors */
-  --crepe-color-outline: oklch(0.4 0 0) !important;
-  --crepe-color-primary: oklch(0.7 0 0) !important;
-  --crepe-color-secondary: oklch(0.25 0 0) !important;
-  --crepe-color-on-secondary: oklch(0.9 0 0) !important;
-  
+  --crepe-color-outline: #334155 !important;
+  --crepe-color-primary: #f8fafc !important;
+  --crepe-color-secondary: #1e293b !important;
+  --crepe-color-on-secondary: #f8fafc !important;
+
   /* Inverse colors */
-  --crepe-color-inverse: oklch(0.15 0 0) !important;
-  --crepe-color-on-inverse: oklch(0.9 0 0) !important;
-  
+  --crepe-color-inverse: #0f172a !important;
+  --crepe-color-on-inverse: #f8fafc !important;
+
   /* Code and states */
-  --crepe-color-inline-code: oklch(0.75 0.15 30) !important;
-  --crepe-color-error: oklch(0.65 0.2 25) !important;
-  --crepe-color-hover: oklch(0.25 0 0) !important;
-  --crepe-color-selected: oklch(0.3 0 0) !important;
-  --crepe-color-inline-area: oklch(0.28 0 0) !important;
-  
+  --crepe-color-inline-code: #38bdf8 !important;
+  --crepe-color-error: #ef4444 !important;
+  --crepe-color-hover: #1e293b !important;
+  --crepe-color-selected: #334155 !important;
+  --crepe-color-inline-area: #1e293b !important;
+
   /* Shadows for dark mode */
-  --crepe-shadow-1: 0px 1px 3px 1px rgba(0, 0, 0, 0.4), 0px 1px 2px 0px rgba(0, 0, 0, 0.5) !important;
-  --crepe-shadow-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.4), 0px 1px 2px 0px rgba(0, 0, 0, 0.5) !important;
-  
-  background-color: oklch(0.145 0 0) !important;
-  color: oklch(0.9 0 0) !important;
+  --crepe-shadow-1: 0px 1px 3px 1px rgba(0, 0, 0, 0.4),
+    0px 1px 2px 0px rgba(0, 0, 0, 0.5) !important;
+  --crepe-shadow-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.4),
+    0px 1px 2px 0px rgba(0, 0, 0, 0.5) !important;
+
+  background-color: #020817 !important;
+  color: #f8fafc !important;
 }
 
 html.dark .milkdown .editor,
@@ -230,58 +234,57 @@ html.dark .milkdown [data-milkdown-root],
 .dark .milkdown .ProseMirror,
 .dark .milkdown [data-milkdown-root] {
   background-color: transparent !important;
-  color: oklch(0.9 0 0) !important;
+  color: #f8fafc !important;
 }
 
 /* Dark mode code blocks */
 html.dark .milkdown code,
 .dark .milkdown code {
-  background-color: oklch(0.25 0 0) !important;
-  color: oklch(0.75 0.15 30) !important;
+  background-color: #1e293b !important;
+  color: #38bdf8 !important;
 }
 
 html.dark .milkdown pre,
 .dark .milkdown pre {
-  background-color: oklch(0.18 0 0) !important;
+  background-color: #0f172a !important;
 }
 
 html.dark .milkdown pre code,
 .dark .milkdown pre code {
   background-color: transparent !important;
-  color: oklch(0.9 0 0) !important;
+  color: #e2e8f0 !important;
 }
 
 /* CodeMirror (code editor) dark mode */
 html.dark .milkdown .cm-editor,
 .dark .milkdown .cm-editor {
-  background-color: oklch(0.18 0 0) !important;
+  background-color: #0f172a !important;
 }
 
 html.dark .milkdown .cm-editor .cm-content,
 .dark .milkdown .cm-editor .cm-content {
-  color: oklch(0.9 0 0) !important;
+  color: #e2e8f0 !important;
 }
 
 html.dark .milkdown .cm-editor .cm-line,
 .dark .milkdown .cm-editor .cm-line {
-  color: oklch(0.9 0 0) !important;
+  color: #e2e8f0 !important;
 }
 
 html.dark .milkdown .cm-editor .cm-gutters,
 .dark .milkdown .cm-editor .cm-gutters {
-  background-color: oklch(0.15 0 0) !important;
-  border-color: oklch(0.25 0 0) !important;
-  color: oklch(0.6 0 0) !important;
+  background-color: #020817 !important;
+  border-color: #1e293b !important;
+  color: #64748b !important;
 }
 
 html.dark .milkdown .cm-editor .cm-activeLineGutter,
 .dark .milkdown .cm-editor .cm-activeLineGutter {
-  background-color: oklch(0.22 0 0) !important;
-  color: oklch(0.85 0 0) !important;
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
 }
 
 html.dark .milkdown .cm-editor .cm-activeLine,
 .dark .milkdown .cm-editor .cm-activeLine {
-  background-color: oklch(0.2 0 0) !important;
+  background-color: #1e293b !important;
 }
-
