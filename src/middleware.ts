@@ -21,7 +21,8 @@ const PUBLIC_ROUTES = [
 // Rutas que requieren autenticación
 const PROTECTED_ROUTES = [
   '/new', // Crear nuevo documento
-  '/edit/', // Editar documento (si lo implementas)
+  '/edit/', // Editar documento
+  '/proposals', // Lista de propuestas
 ];
 
 // Verificar si una ruta es pública

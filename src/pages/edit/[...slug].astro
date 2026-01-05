@@ -1,0 +1,157 @@
+---
+/**
+ * Página de Edición/Propuesta de Cambios
+ *
+ * Permite a usuarios editar un documento:
+ * - Si es el autor: edita directamente
+ * - Si NO es el autor: crea una propuesta de cambios
+ */
+import '@milkdown/crepe/theme/common/style.css';
+import '@milkdown/crepe/theme/frame.css';
+import Layout from '@/layouts/layout.astro';
+import { ProposalEditor } from '@/components/ProposalEditor';
+import { getDocumentBySlugWithAuthor } from '@/db/documents';
+import { auth } from '@/lib/auth';
+
+export const prerender = false;
+
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect('/');
+}
+
+// Verificar autenticación
+const session = await auth.api.getSession({
+  headers: Astro.request.headers,
+});
+
+if (!session?.user) {
+  return Astro.redirect(`/login?redirect=/edit/${slug}`);
+}
+
+// Obtener el documento
+const document = await getDocumentBySlugWithAuthor(slug);
+
+if (!document) {
+  return Astro.redirect('/');
+}
+
+// Determinar si el usuario es el autor
+const isAuthor = document.authorId === session.user.id;
+
+// Preparar datos para el cliente
+const editorData = {
+  documentId: document.id,
+  slug: document.slug,
+  title: document.title,
+  rawMarkdown: document.rawMarkdown,
+  isAuthor,
+  authorName: document.authorName,
+};
+---
+
+<Layout
+  title={isAuthor
+    ? `Editando: ${document.title}`
+    : `Proponer cambios: ${document.title}`}
+>
+  <div class='w-full flex justify-center relative'>
+    <div class='w-full max-w-7xl'>
+      <ProposalEditor
+        client:load
+        documentId={editorData.documentId}
+        slug={editorData.slug}
+        initialTitle={editorData.title}
+        initialMarkdown={editorData.rawMarkdown}
+        isAuthor={editorData.isAuthor}
+        authorName={editorData.authorName || 'Desconocido'}
+      />
+      <div id='app' class='w-full min-h-[70vh]'></div>
+    </div>
+  </div>
+</Layout>
+
+<script define:vars={{ rawMarkdown: document.rawMarkdown, isAuthor }}>
+  window.__DOCUMENT_CONTENT__ = rawMarkdown;
+  window.__IS_AUTHOR__ = isAuthor;
+</script>
+
+<script>
+  import { Crepe } from '@milkdown/crepe';
+  import { editorViewCtx } from '@milkdown/core';
+  import { editorInstance, setCurrentTitle } from '@/store/editor-store';
+
+  let crepeInstance: Crepe | null = null;
+
+  function debounce<T extends (...args: any[]) => void>(fn: T, ms: number): T {
+    let timeoutId: number | null = null;
+    return ((...args: any[]) => {
+      if (timeoutId) window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => fn(...args), ms);
+    }) as T;
+  }
+
+  async function initEditor() {
+    if (crepeInstance) {
+      crepeInstance.destroy();
+      crepeInstance = null;
+    }
+
+    const content = (window as any).__DOCUMENT_CONTENT__ || '# ';
+
+    crepeInstance = new Crepe({
+      root: '#app',
+      defaultValue: content,
+      featureConfigs: {
+        placeholder: {
+          text: 'Escribe aquí...',
+          mode: 'block',
+        },
+      },
+    });
+
+    // Actualizar título cuando cambia el documento
+    const handleUpdate = debounce((ctx: any) => {
+      const view = ctx.get(editorViewCtx);
+      const { state } = view;
+      const firstChild = state.doc.firstChild;
+
+      if (!firstChild) return;
+
+      if (firstChild.type.name === 'heading' && firstChild.attrs.level === 1) {
+        const textoTitulo = firstChild.textContent.trim() || 'Sin título';
+        setCurrentTitle(textoTitulo);
+      }
+    }, 300);
+
+    crepeInstance.on((api) => {
+      api.updated((ctx) => {
+        handleUpdate(ctx);
+      });
+    });
+
+    await crepeInstance.create();
+    editorInstance.set(crepeInstance);
+
+    // Establecer título inicial
+    const lines = content.split(/\r?\n/);
+    for (const line of lines) {
+      const m = /^\s*#\s+(.+)\s*$/.exec(line);
+      if (m?.[1]) {
+        setCurrentTitle(m[1].trim());
+        break;
+      }
+    }
+  }
+
+  initEditor();
+
+  document.addEventListener('astro:before-swap', () => {
+    if (crepeInstance) {
+      crepeInstance.destroy();
+      crepeInstance = null;
+      editorInstance.set(undefined);
+    }
+  });
+</script>

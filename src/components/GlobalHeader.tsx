@@ -4,6 +4,7 @@ import { Search, HomeIcon, X, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ModeToggle } from './ui/mode-toggle';
 import { UserMenu } from './UserMenu';
+import NotificationBell from './NotificationBell';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import { $isSearching } from '@/store/search-store';
@@ -80,7 +81,7 @@ function GlobalHeader({
     >
       <div
         className={cn(
-          'relative overflow-hidden p-px pointer-events-auto shadow-sm w-full transition-all duration-300 ease-out',
+          'relative p-px pointer-events-auto shadow-sm w-full transition-all duration-300 ease-out',
           isScrolled ? 'max-w-full rounded-none' : 'max-w-5xl rounded-xl',
         )}
       >
@@ -202,6 +203,7 @@ function GlobalHeader({
               </Button>
             )}
 
+            <NotificationBell />
             <ModeToggle />
             <UserMenu />
           </div>

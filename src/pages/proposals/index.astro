@@ -1,0 +1,18 @@
+---
+import Layout from '@/layouts/layout.astro';
+import ProposalsList from '@/components/ProposalsList.tsx';
+
+const session = Astro.locals.session;
+const user = Astro.locals.user;
+
+if (!session || !user) {
+  return Astro.redirect('/login?redirect=/proposals');
+}
+---
+
+<Layout title='Propuestas de Cambios'>
+  <main class='container mx-auto px-4 py-8 max-w-5xl'>
+    <h1 class='text-3xl font-bold mb-8'>Propuestas de Cambios</h1>
+    <ProposalsList client:load userId={user.id} />
+  </main>
+</Layout>

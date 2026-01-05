@@ -1,0 +1,42 @@
+---
+import Layout from '@/layouts/layout.astro';
+import ProposalDetail from '@/components/ProposalDetail.tsx';
+import { getProposalById } from '@/db/proposals';
+
+const session = Astro.locals.session;
+const user = Astro.locals.user;
+
+if (!session || !user) {
+  return Astro.redirect('/login?redirect=' + Astro.url.pathname);
+}
+
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/proposals');
+}
+
+const proposal = await getProposalById(id);
+
+if (!proposal) {
+  return Astro.redirect('/proposals');
+}
+
+// Check if user is author of the document or the proposer
+const isAuthor = proposal.authorId === user.id;
+const isProposer = proposal.proposerId === user.id;
+
+if (!isAuthor && !isProposer) {
+  return Astro.redirect('/proposals');
+}
+---
+
+<Layout title={`Propuesta: ${proposal.proposedTitle}`}>
+  <ProposalDetail
+    client:load
+    proposal={proposal}
+    isAuthor={isAuthor}
+    isProposer={isProposer}
+    currentUserId={user.id}
+  />
+</Layout>
