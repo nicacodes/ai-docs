@@ -133,7 +133,7 @@ function GlobalHeader({
                           ease: 'linear',
                         },
                       }}
-                      className='absolute -inset-[100px] z-0 pointer-events-none'
+                      className='absolute -inset-25 z-0 pointer-events-none'
                       style={{
                         background:
                           'conic-gradient(from 0deg, transparent 30%, #06b6d4 60%, #a855f7 80%, #ec4899 100%)',
