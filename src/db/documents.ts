@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from './client';
-import { documents } from './schema';
+import { documents, user } from './schema';
 import { makeSlug } from './utils';
 
 // ============================================================================
@@ -16,6 +16,12 @@ export interface DocumentRow {
   authorId: string | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** Documento con información del autor */
+export interface DocumentWithAuthor extends DocumentRow {
+  authorName: string | null;
+  authorEmail: string | null;
 }
 
 export interface DocumentSummary {
@@ -67,6 +73,35 @@ export async function getDocumentBySlug(
     .limit(1);
 
   return (rows[0] as DocumentRow | undefined) ?? null;
+}
+
+/**
+ * Obtiene un documento por su slug, incluyendo información del autor.
+ */
+export async function getDocumentBySlugWithAuthor(
+  slug: string,
+): Promise<DocumentWithAuthor | null> {
+  const db = getDb();
+
+  const rows = await db
+    .select({
+      id: documents.id,
+      title: documents.title,
+      slug: documents.slug,
+      rawMarkdown: documents.rawMarkdown,
+      metadata: documents.metadata,
+      authorId: documents.authorId,
+      createdAt: documents.createdAt,
+      updatedAt: documents.updatedAt,
+      authorName: user.name,
+      authorEmail: user.email,
+    })
+    .from(documents)
+    .leftJoin(user, eq(documents.authorId, user.id))
+    .where(eq(documents.slug, slug))
+    .limit(1);
+
+  return (rows[0] as DocumentWithAuthor | undefined) ?? null;
 }
 
 /**

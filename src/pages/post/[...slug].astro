@@ -1,91 +1,96 @@
 ---
-import "@milkdown/crepe/theme/common/style.css";
-import "@milkdown/crepe/theme/frame.css";
-import Layout from "@/layouts/layout.astro";
-import { PostHeader } from "@/components/PostHeader";
-import { getDb } from "@/db/client";
-import { documents } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import '@milkdown/crepe/theme/common/style.css';
+import '@milkdown/crepe/theme/frame.css';
+import Layout from '@/layouts/layout.astro';
+import { PostHeader } from '@/components/PostHeader';
+import { getDocumentBySlugWithAuthor } from '@/db/documents';
 
 export const prerender = false;
 
 const { slug } = Astro.params;
 
 if (!slug) {
-  return Astro.redirect("/");
+  return Astro.redirect('/');
 }
 
-// Fetch document by slug
-const db = getDb();
-const rows = await db
-  .select({
-    id: documents.id,
-    title: documents.title,
-    slug: documents.slug,
-    rawMarkdown: documents.rawMarkdown,
-    createdAt: documents.createdAt,
-  })
-  .from(documents)
-  .where(eq(documents.slug, slug))
-  .limit(1);
-
-const post = rows[0];
+// Fetch document by slug with author info
+const post = await getDocumentBySlugWithAuthor(slug);
 
 if (!post) {
-  return Astro.redirect("/");
+  return Astro.redirect('/');
 }
 ---
 
 <Layout title={post.title}>
-  <div class="w-full flex flex-col gap-6">
+  <div class='w-full flex flex-col gap-6'>
     <PostHeader
       title={post.title}
-      rawMarkdown={post.rawMarkdown || ""}
+      rawMarkdown={post.rawMarkdown || ''}
       slug={post.slug}
       client:load
     />
 
-    <div class="w-full max-w-4xl mx-auto px-1">
+    <div class='w-full max-w-4xl mx-auto px-1'>
       <!-- Back navigation and metadata -->
-      <div class="flex items-center justify-between mb-6">
+      <div class='flex items-center justify-between mb-6'>
         <a
-          href="/"
-          class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+          href='/'
+          class='inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group'
         >
           <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="group-hover:-translate-x-0.5 transition-transform"
+            xmlns='http://www.w3.org/2000/svg'
+            width='16'
+            height='16'
+            viewBox='0 0 24 24'
+            fill='none'
+            stroke='currentColor'
+            stroke-width='2'
+            stroke-linecap='round'
+            stroke-linejoin='round'
+            class='group-hover:-translate-x-0.5 transition-transform'
           >
-            <path d="m12 19-7-7 7-7"></path>
-            <path d="M19 12H5"></path>
+            <path d='m12 19-7-7 7-7'></path>
+            <path d='M19 12H5'></path>
           </svg>
           <span>Volver</span>
         </a>
 
-        <time
-          datetime={post.createdAt?.toISOString()}
-          class="text-xs text-muted-foreground"
-        >
+        <div class='flex items-center gap-3 text-xs text-muted-foreground'>
           {
-            new Intl.DateTimeFormat("es", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            }).format(post.createdAt)
+            post.authorName && (
+              <span class='flex items-center gap-1.5'>
+                <svg
+                  xmlns='http://www.w3.org/2000/svg'
+                  width='14'
+                  height='14'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  stroke-width='2'
+                  stroke-linecap='round'
+                  stroke-linejoin='round'
+                >
+                  <path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2' />
+                  <circle cx='12' cy='7' r='4' />
+                </svg>
+                {post.authorName}
+              </span>
+            )
           }
-        </time>
+          <time datetime={post.createdAt?.toISOString()}>
+            {
+              new Intl.DateTimeFormat('es', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              }).format(post.createdAt)
+            }
+          </time>
+        </div>
       </div>
 
       <!-- Editor en modo solo lectura -->
-      <div id="app" class="w-full min-h-[70vh] milkdown-readonly"></div>
+      <div id='app' class='w-full min-h-[70vh] milkdown-readonly'></div>
     </div>
   </div>
 </Layout>
@@ -95,7 +100,7 @@ if (!post) {
 </script>
 
 <script>
-  import { Crepe } from "@milkdown/crepe";
+  import { Crepe } from '@milkdown/crepe';
 
   let crepeInstance: Crepe | null = null;
 
@@ -105,10 +110,10 @@ if (!post) {
       crepeInstance = null;
     }
 
-    const content = (window as any).__POST_CONTENT__ || "";
+    const content = (window as any).__POST_CONTENT__ || '';
 
     crepeInstance = new Crepe({
-      root: "#app",
+      root: '#app',
       defaultValue: content,
     });
 
@@ -120,9 +125,9 @@ if (!post) {
 
   initReadonlyEditor();
 
-  document.addEventListener("astro:before-swap", () => {
+  document.addEventListener('astro:before-swap', () => {
     if (crepeInstance) {
-      console.log("Limpiando editor readonly de memoria...");
+      console.log('Limpiando editor readonly de memoria...');
       crepeInstance.destroy();
       crepeInstance = null;
     }

@@ -1,12 +1,15 @@
 /**
  * Document Actions - Astro Server Actions for document management.
- * 
+ *
  * Este módulo define las acciones del servidor para gestionar documentos y sus embeddings.
  * La lógica de base de datos está delegada a los repositorios en src/db/.
  */
 
 import { defineAction, ActionError } from 'astro:actions';
 import { z } from 'astro/zod';
+
+// Auth
+import { auth } from '../lib/auth';
 
 // Repositories
 import {
@@ -86,27 +89,44 @@ function toDocumentWithExcerpt(doc: DocumentRow) {
 export const documentsActions = {
   /**
    * Guarda un documento (crea nuevo o actualiza existente).
+   * El authorId se obtiene automáticamente de la sesión del usuario.
    */
   save: defineAction({
     input: saveInputSchema,
-    handler: async ({ id, slug, title, rawMarkdown, metadata }) => {
+    handler: async ({ id, slug, title, rawMarkdown, metadata }, context) => {
+      // Obtener el usuario autenticado desde la sesión
+      const session = await auth.api.getSession({
+        headers: context.request.headers,
+      });
+      const authorId = session?.user?.id ?? null;
+
       // Update existing document
       if (id) {
-        const updated = await updateDocument(id, { title, rawMarkdown, metadata });
-        
+        const updated = await updateDocument(id, {
+          title,
+          rawMarkdown,
+          metadata,
+        });
+
         if (!updated) {
           throw new ActionError({
             code: 'NOT_FOUND',
             message: 'Documento no encontrado.',
           });
         }
-        
+
         return updated;
       }
 
-      // Create new document
+      // Create new document (incluye authorId)
       try {
-        return await createDocument({ slug, title, rawMarkdown, metadata });
+        return await createDocument({
+          slug,
+          title,
+          rawMarkdown,
+          metadata,
+          authorId,
+        });
       } catch (err) {
         const dbErr = pickDbError(err);
 
@@ -119,10 +139,14 @@ export const documentsActions = {
         }
 
         // Handle missing pgcrypto extension
-        if (dbErr.code === '42883' && dbErr.message?.includes('gen_random_uuid')) {
+        if (
+          dbErr.code === '42883' &&
+          dbErr.message?.includes('gen_random_uuid')
+        ) {
           throw new ActionError({
             code: 'INTERNAL_SERVER_ERROR',
-            message: 'La BD no tiene habilitada la extensión pgcrypto. Ejecuta `pnpm db:migrate`.',
+            message:
+              'La BD no tiene habilitada la extensión pgcrypto. Ejecuta `pnpm db:migrate`.',
           });
         }
 
@@ -183,7 +207,7 @@ export const documentsActions = {
     input: getBySlugSchema,
     handler: async ({ slug }) => {
       const doc = await getDocumentBySlug(slug);
-      
+
       if (!doc) {
         throw new ActionError({
           code: 'NOT_FOUND',
