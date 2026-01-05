@@ -15,6 +15,13 @@
       "when": 1766875094880,
       "tag": "0001_dazzling_scarlet_spider",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1767642416363,
+      "tag": "0002_silly_wendell_rand",
+      "breakpoints": true
     }
   ]
 }

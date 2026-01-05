@@ -12,6 +12,10 @@ import {
   vector,
 } from 'drizzle-orm/pg-core';
 
+// Re-exportar schema de auth para que esté disponible desde un solo lugar
+export * from './auth-schema';
+import { user } from './auth-schema';
+
 export const EMBEDDING_DIMENSIONS = 384;
 
 export const documents = pgTable(
@@ -24,6 +28,10 @@ export const documents = pgTable(
     slug: text('slug').notNull(),
     rawMarkdown: text('raw_markdown').notNull(),
     metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
+    // Autor del documento (referencia a user de Better Auth)
+    authorId: text('author_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),
@@ -35,6 +43,7 @@ export const documents = pgTable(
   (table) => [
     uniqueIndex('documents_slug_unique').on(table.slug),
     index('idx_documents_slug').on(table.slug),
+    index('idx_documents_author_id').on(table.authorId),
   ],
 );
 

@@ -13,6 +13,7 @@ export interface DocumentRow {
   slug: string;
   rawMarkdown: string;
   metadata: Record<string, unknown>;
+  authorId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,6 +30,7 @@ export interface SaveDocumentInput {
   title: string;
   rawMarkdown: string;
   metadata?: Record<string, unknown>;
+  authorId?: string | null;
 }
 
 export interface ListDocumentsInput {
@@ -44,9 +46,11 @@ export interface ListDocumentsInput {
 /**
  * Obtiene un documento por su slug.
  */
-export async function getDocumentBySlug(slug: string): Promise<DocumentRow | null> {
+export async function getDocumentBySlug(
+  slug: string,
+): Promise<DocumentRow | null> {
   const db = getDb();
-  
+
   const rows = await db
     .select({
       id: documents.id,
@@ -54,6 +58,7 @@ export async function getDocumentBySlug(slug: string): Promise<DocumentRow | nul
       slug: documents.slug,
       rawMarkdown: documents.rawMarkdown,
       metadata: documents.metadata,
+      authorId: documents.authorId,
       createdAt: documents.createdAt,
       updatedAt: documents.updatedAt,
     })
@@ -69,7 +74,7 @@ export async function getDocumentBySlug(slug: string): Promise<DocumentRow | nul
  */
 export async function getDocumentById(id: string): Promise<DocumentRow | null> {
   const db = getDb();
-  
+
   const rows = await db
     .select({
       id: documents.id,
@@ -77,6 +82,7 @@ export async function getDocumentById(id: string): Promise<DocumentRow | null> {
       slug: documents.slug,
       rawMarkdown: documents.rawMarkdown,
       metadata: documents.metadata,
+      authorId: documents.authorId,
       createdAt: documents.createdAt,
       updatedAt: documents.updatedAt,
     })
@@ -90,7 +96,9 @@ export async function getDocumentById(id: string): Promise<DocumentRow | null> {
 /**
  * Lista documentos con paginación y búsqueda opcional por título.
  */
-export async function listDocuments(input: ListDocumentsInput = {}): Promise<DocumentRow[]> {
+export async function listDocuments(
+  input: ListDocumentsInput = {},
+): Promise<DocumentRow[]> {
   const { limit = 20, offset = 0, search } = input;
   const db = getDb();
 
@@ -101,6 +109,7 @@ export async function listDocuments(input: ListDocumentsInput = {}): Promise<Doc
       slug: documents.slug,
       rawMarkdown: documents.rawMarkdown,
       metadata: documents.metadata,
+      authorId: documents.authorId,
       createdAt: documents.createdAt,
       updatedAt: documents.updatedAt,
     })
@@ -116,7 +125,7 @@ export async function listDocuments(input: ListDocumentsInput = {}): Promise<Doc
     ) as typeof query;
   }
 
-  return await query as DocumentRow[];
+  return (await query) as DocumentRow[];
 }
 
 // ============================================================================
@@ -126,7 +135,9 @@ export async function listDocuments(input: ListDocumentsInput = {}): Promise<Doc
 /**
  * Crea un nuevo documento.
  */
-export async function createDocument(input: SaveDocumentInput): Promise<DocumentSummary> {
+export async function createDocument(
+  input: SaveDocumentInput,
+): Promise<DocumentSummary> {
   const db = getDb();
   const finalSlug = input.slug ?? makeSlug(input.title);
 
@@ -137,6 +148,7 @@ export async function createDocument(input: SaveDocumentInput): Promise<Document
       slug: finalSlug,
       rawMarkdown: input.rawMarkdown,
       metadata: input.metadata ?? {},
+      authorId: input.authorId ?? null,
     })
     .returning({
       id: documents.id,
@@ -152,7 +164,7 @@ export async function createDocument(input: SaveDocumentInput): Promise<Document
  */
 export async function updateDocument(
   id: string,
-  input: Omit<SaveDocumentInput, 'id' | 'slug'>
+  input: Omit<SaveDocumentInput, 'id' | 'slug'>,
 ): Promise<DocumentSummary | null> {
   const db = getDb();
 
@@ -178,7 +190,7 @@ export async function updateDocument(
  */
 export async function documentExists(id: string): Promise<boolean> {
   const db = getDb();
-  
+
   const rows = await db
     .select({ id: documents.id })
     .from(documents)

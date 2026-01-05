@@ -1,0 +1,29 @@
+---
+/**
+ * Página de Login/Registro
+ *
+ * Punto de entrada para autenticación de usuarios.
+ */
+import Layout from '@/layouts/layout.astro';
+import { AuthForm } from '@/components/AuthForm';
+import { auth } from '@/lib/auth';
+
+// Verificar si ya hay sesión activa
+const session = await auth.api.getSession({
+  headers: Astro.request.headers,
+});
+
+// Si ya está autenticado, redirigir al home
+if (session?.user) {
+  return Astro.redirect('/');
+}
+
+// Obtener el parámetro de redirección
+const redirectTo = Astro.url.searchParams.get('redirect') || '/';
+---
+
+<Layout title='Iniciar Sesión | AI Docs'>
+  <main class='min-h-[calc(100vh-4rem)] flex items-center justify-center p-4'>
+    <AuthForm client:load redirectTo={redirectTo} />
+  </main>
+</Layout>
