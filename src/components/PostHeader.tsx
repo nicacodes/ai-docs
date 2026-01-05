@@ -102,7 +102,7 @@ function PostHeader({ title, rawMarkdown, slug, className }: PostHeaderProps) {
                 />
               </div>
               <span className='font-semibold text-base text-foreground hidden sm:block'>
-                AI Blog
+                AI Docs
               </span>
             </a>
           </div>
