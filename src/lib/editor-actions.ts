@@ -70,6 +70,7 @@ function normalizeProgressPayload(payload: unknown): EditorProgress {
     };
   }
 
+  // Fase running con múltiples items
   if (
     phase === 'running' &&
     typeof anyPayload.total === 'number' &&
@@ -90,6 +91,18 @@ function normalizeProgressPayload(payload: unknown): EditorProgress {
     };
   }
 
+  // Fase running sin total - generación rápida, no mostrar 0%
+  if (phase === 'running') {
+    // Solo mostrar porcentaje si es mayor a 0 y menor a 100
+    if (pct !== null && pct > 0 && pct < 100) {
+      return { label: message || 'Generando embeddings', percent: pct };
+    } else if (pct === 100) {
+      return { label: 'Embeddings generados', percent: 100 };
+    }
+    // pct === 0 o null: no mostrar porcentaje
+    return { label: message || 'Generando embeddings', percent: null };
+  }
+
   // Solo mostrar "Descargando modelo" si realmente está descargando (no desde caché)
   if (phase === 'loading' && !fromCache) {
     return {
@@ -98,10 +111,17 @@ function normalizeProgressPayload(payload: unknown): EditorProgress {
     };
   }
 
-  // Default para otros casos
+  // Default para otros casos - no mostrar 0%
+  if (pct !== null && pct > 0) {
+    return {
+      label: message || 'Preparando',
+      percent: pct,
+    };
+  }
+
   return {
     label: message || 'Preparando',
-    percent: pct,
+    percent: null,
   };
 }
 

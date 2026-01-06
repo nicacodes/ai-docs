@@ -116,11 +116,7 @@ const pageTitle =
   import { keymap } from '@milkdown/prose/keymap';
   import { editorInstance, setCurrentTitle } from '@/store/editor-store';
   import { disposeEmbeddingsClient } from '@/scripts/ai-embeddings';
-  import {
-    loadDraftContent,
-    saveDraftContent,
-    clearDraftContent,
-  } from '@/lib/utils';
+  import { loadDraftContent, saveDraftContent } from '@/lib/utils';
 
   let crepeInstance: Crepe | null = null;
   let updateDebounceId: number | null = null;
@@ -160,30 +156,28 @@ const pageTitle =
       },
     });
 
-    // Para nuevo documento, proteger el H1 inicial
-    if (mode === 'new') {
-      crepeInstance.editor.config((ctx) => {
-        ctx.update(prosePluginsCtx, (prev) => [
-          ...prev,
-          keymap({
-            Backspace: (state) => {
-              const { selection } = state;
-              const { $from, empty } = selection;
+    // Proteger el H1 inicial en todos los modos
+    crepeInstance.editor.config((ctx) => {
+      ctx.update(prosePluginsCtx, (prev) => [
+        ...prev,
+        keymap({
+          Backspace: (state) => {
+            const { selection } = state;
+            const { $from, empty } = selection;
 
-              if (!empty) return false;
-              if ($from.index(0) !== 0) return false;
-              if ($from.parentOffset !== 0) return false;
+            if (!empty) return false;
+            if ($from.index(0) !== 0) return false;
+            if ($from.parentOffset !== 0) return false;
 
-              const node = $from.parent;
-              if (node.type.name === 'heading' && node.attrs.level === 1) {
-                return true;
-              }
-              return false;
-            },
-          }),
-        ]);
-      });
-    }
+            const node = $from.parent;
+            if (node.type.name === 'heading' && node.attrs.level === 1) {
+              return true;
+            }
+            return false;
+          },
+        }),
+      ]);
+    });
 
     // Handler para actualizar título
     const handleUpdate = debounce((ctx: any) => {
@@ -193,25 +187,21 @@ const pageTitle =
 
       if (!firstChild) return;
 
-      // Para nuevo, forzar H1
-      if (mode === 'new') {
-        const esTituloH1 =
-          firstChild.type.name === 'heading' && firstChild.attrs.level === 1;
+      // Forzar H1 como primer elemento en todos los modos
+      const esTituloH1 =
+        firstChild.type.name === 'heading' && firstChild.attrs.level === 1;
 
-        if (!esTituloH1) {
-          const tr = state.tr.setNodeMarkup(0, state.schema.nodes.heading, {
-            level: 1,
-          });
-          view.dispatch(tr);
-          return;
-        }
+      if (!esTituloH1) {
+        const tr = state.tr.setNodeMarkup(0, state.schema.nodes.heading, {
+          level: 1,
+        });
+        view.dispatch(tr);
+        return;
       }
 
-      // Actualizar título
-      if (firstChild.type.name === 'heading' && firstChild.attrs.level === 1) {
-        const textoTitulo = firstChild.textContent.trim() || 'Sin título';
-        setCurrentTitle(textoTitulo);
-      }
+      // Actualizar título en el store
+      const textoTitulo = firstChild.textContent.trim() || 'Sin título';
+      setCurrentTitle(textoTitulo);
     }, 300);
 
     // Handler para guardar draft (solo en modo new)

@@ -21,6 +21,8 @@ import {
   Send,
   AlertCircle,
   ArrowLeft,
+  Loader2,
+  Check,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { actions } from 'astro:actions';
@@ -45,6 +47,7 @@ import {
   $saveStatus,
   $pendingTags,
   $currentTitle,
+  $embeddingProgress,
   editorInstance,
   setPendingTags,
   setSaveSaving,
@@ -97,6 +100,7 @@ export function UnifiedEditorHeader({
   const modelStatus = useStore($modelStatus);
   const saveStatus = useStore($saveStatus);
   const pendingTags = useStore($pendingTags);
+  const embeddingProgress = useStore($embeddingProgress);
 
   const {
     newDoc,
@@ -112,6 +116,7 @@ export function UnifiedEditorHeader({
   const isBusy =
     modelStatus.phase === 'loading' ||
     saveStatus.phase === 'saving' ||
+    (embeddingProgress && embeddingProgress.percent !== null) ||
     actionsBusy ||
     isSaving;
 
@@ -176,7 +181,7 @@ export function UnifiedEditorHeader({
     setIsSaving(true);
     setStatus('idle');
     setSaveSaving('Guardando…');
-    setEmbeddingProgress({ label: 'Preparando', percent: 0 });
+    setEmbeddingProgress({ label: 'Generando embeddings', percent: 0 });
 
     try {
       // Asegurar modelo listo
@@ -200,7 +205,6 @@ export function UnifiedEditorHeader({
       }
 
       // Generar embeddings
-      setEmbeddingProgress({ label: 'Generando embeddings', percent: 20 });
       const cleanedText = preparePassageText(title, rawMarkdown);
       const embeddingText = `passage: ${cleanedText}`;
 
@@ -214,11 +218,45 @@ export function UnifiedEditorHeader({
         text: embeddingText,
         model: MODEL,
         onProgress: (payload: unknown) => {
-          const p = payload as { percent?: number; label?: string };
-          if (p?.percent != null) {
+          // Usar el mismo patrón que saveDocumentWithEmbeddings
+          const p = payload as {
+            percent?: number;
+            label?: string;
+            phase?: string;
+            fromCache?: boolean;
+          };
+          if (p?.phase === 'cached' || p?.phase === 'ready') {
+            // Modelo en caché - no mostrar porcentaje, solo el label
+            setEmbeddingProgress({
+              label: 'Generando vectores',
+              percent: null,
+            });
+          } else if (p?.phase === 'running') {
+            // Solo mostrar porcentaje si es mayor a 0 y menor a 100
+            // El worker envía 0 al inicio y 100 al final, pero no hay progreso intermedio
+            const rawPct = p.percent;
+            if (rawPct != null && rawPct > 0 && rawPct < 100) {
+              setEmbeddingProgress({
+                label: p.label || 'Generando embeddings',
+                percent: rawPct,
+              });
+            } else if (rawPct === 100) {
+              setEmbeddingProgress({
+                label: 'Embeddings generados',
+                percent: 100,
+              });
+            } else {
+              // rawPct === 0 o null: mostrar sin porcentaje
+              setEmbeddingProgress({
+                label: p.label || 'Generando embeddings',
+                percent: null,
+              });
+            }
+          } else if (p?.phase === 'loading' && p?.percent != null) {
+            // Descarga del modelo - mostrar porcentaje
             const pct = Math.max(0, Math.min(100, Math.round(p.percent)));
             setEmbeddingProgress({
-              label: p.label || 'Generando embeddings',
+              label: p.label || 'Descargando modelo',
               percent: pct,
             });
           }
@@ -261,7 +299,7 @@ export function UnifiedEditorHeader({
 
       setStatus('success');
       setStatusMessage('Guardado correctamente');
-      setSaveSuccess('Guardado correctamente');
+      setSaveSuccess('Guardado. Redirigiendo...');
       resetEmbeddingProgress();
 
       setTimeout(() => {
@@ -365,39 +403,43 @@ export function UnifiedEditorHeader({
             isScrolled ? 'max-w-full rounded-none' : 'max-w-5xl rounded-xl',
           )}
         >
-          {/* Contenedor del gradiente animado */}
-          <div
-            className={cn(
-              'absolute inset-0 overflow-hidden p-px',
-              isScrolled ? 'rounded-none' : 'rounded-xl',
-            )}
-          >
-            <AnimatePresence>
-              {isBusy && (
+          {/* Borde animado - solo visible cuando isBusy */}
+          <AnimatePresence>
+            {isBusy && (
+              <div
+                className={cn(
+                  'absolute inset-0 overflow-hidden',
+                  isScrolled ? 'rounded-none' : 'rounded-xl',
+                )}
+              >
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1, rotate: 360 }}
                   exit={{ opacity: 0 }}
                   transition={{
-                    opacity: { duration: 0.5 },
-                    rotate: { duration: 4, repeat: Infinity, ease: 'linear' },
+                    opacity: { duration: 0.3 },
+                    rotate: { duration: 3, repeat: Infinity, ease: 'linear' },
                   }}
-                  className='absolute -inset-[150%] z-0'
+                  className='absolute -inset-full'
                   style={{
                     background:
-                      'conic-gradient(from 0deg, transparent 40%, #06b6d4 80%, #a855f7 90%, #ec4899 100%)',
+                      'conic-gradient(from 0deg, transparent 0%, transparent 50%, #06b6d4 70%, #a855f7 85%, #ec4899 95%, transparent 100%)',
                   }}
                 />
-              )}
-            </AnimatePresence>
-          </div>
+              </div>
+            )}
+          </AnimatePresence>
 
           <div
             className={cn(
               'relative z-10 flex items-center justify-between w-full h-11 px-3 transition-all duration-300 ease-out',
-              !isBusy && 'border border-border/40',
+              isBusy
+                ? isScrolled
+                  ? 'm-px rounded-none'
+                  : 'm-px rounded-[11px]'
+                : 'border border-border/40',
               isScrolled
-                ? 'bg-background/60 backdrop-blur-2xl shadow-lg shadow-black/5 border-white/10 rounded-none'
+                ? 'bg-background/95 backdrop-blur-2xl shadow-lg shadow-black/5 rounded-none'
                 : 'bg-background/95 backdrop-blur-xl rounded-xl',
             )}
           >
@@ -455,8 +497,10 @@ export function UnifiedEditorHeader({
               )}
             </div>
 
-            {/* Center: Document info (solo modo new) */}
-            {mode === 'new' && (
+            {/* Center: Document info (modo new y edit durante guardado) */}
+            {(mode === 'new' ||
+              (mode === 'edit' &&
+                (saveStatus.phase !== 'idle' || isSaving))) && (
               <div className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-full max-w-75 flex justify-center pointer-events-none'>
                 <div className='pointer-events-auto'>
                   <DocumentInfo />
@@ -464,24 +508,66 @@ export function UnifiedEditorHeader({
               </div>
             )}
 
-            {/* Center: Status message (modos edit/propose) */}
-            {mode !== 'new' && (
-              <AnimatePresence mode='wait'>
-                {status !== 'idle' && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    className={cn(
-                      'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-sm font-medium',
-                      status === 'success' && 'text-green-500',
-                      status === 'error' && 'text-destructive',
-                    )}
-                  >
-                    {statusMessage}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+            {/* Center: Title (modo edit cuando no está guardando) */}
+            {mode === 'edit' && saveStatus.phase === 'idle' && !isSaving && (
+              <div className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10'>
+                <span className='text-sm font-medium text-foreground/80 truncate max-w-60 block'>
+                  {currentTitle || initialTitle}
+                </span>
+              </div>
+            )}
+
+            {/* Center: Status/Title (modo propose) */}
+            {mode === 'propose' && (
+              <div className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10'>
+                <AnimatePresence mode='wait'>
+                  {isSaving ? (
+                    <motion.div
+                      key='propose-saving'
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      className='flex items-center gap-2 text-sm text-blue-500'
+                    >
+                      <Loader2 className='w-4 h-4 animate-spin' />
+                      <span>Enviando propuesta...</span>
+                    </motion.div>
+                  ) : status === 'success' ? (
+                    <motion.div
+                      key='propose-success'
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      className='flex items-center gap-2 text-sm text-emerald-500'
+                    >
+                      <Check className='w-4 h-4' />
+                      <span>{statusMessage}</span>
+                    </motion.div>
+                  ) : status === 'error' ? (
+                    <motion.div
+                      key='propose-error'
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      className='flex items-center gap-2 text-sm text-red-500'
+                    >
+                      <AlertCircle className='w-4 h-4' />
+                      <span>{statusMessage}</span>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key='propose-title'
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <span className='text-sm font-medium text-foreground/80 truncate max-w-60 block'>
+                        {currentTitle || initialTitle}
+                      </span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             )}
 
             {/* Right: Actions */}

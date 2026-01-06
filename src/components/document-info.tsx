@@ -1,8 +1,13 @@
 import { useStore } from '@nanostores/react';
 import { motion, AnimatePresence, useSpring } from 'motion/react';
 import { useEffect, useState } from 'react';
-import { $saveStatus, $modelStatus, $currentTitle } from '@/store/editor-store';
-import { Check, Cloud, Download } from 'lucide-react';
+import {
+  $saveStatus,
+  $modelStatus,
+  $currentTitle,
+  $embeddingProgress,
+} from '@/store/editor-store';
+import { Check, Cloud, Download, Sparkles, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Componente para animar el porcentaje con interpolación suave
@@ -41,6 +46,7 @@ const AnimatedPercentage = ({ percent }: { percent: number }) => {
 export const DocumentInfo = () => {
   const saveStatus = useStore($saveStatus);
   const modelStatus = useStore($modelStatus);
+  const embeddingProgress = useStore($embeddingProgress);
   const liveTitle = useStore($currentTitle);
 
   const title = liveTitle || 'Documento sin título';
@@ -57,12 +63,10 @@ export const DocumentInfo = () => {
       };
     }
 
-    // Estado de descarga del modelo
+    // Estado de descarga del modelo - PRIMERO porque tiene prioridad
     if (modelStatus.phase === 'loading') {
       const progress = modelStatus.progress;
-      // Clampear porcentaje a rango válido 0-100
-      const rawPercent = progress?.percent ?? 0;
-      const percent = Math.max(0, Math.min(100, rawPercent));
+      const percent = progress?.percent ?? 0;
 
       return {
         type: 'downloading',
@@ -72,6 +76,32 @@ export const DocumentInfo = () => {
         bg: 'bg-cyan-500/10',
         border: 'border-cyan-500/20',
         icon: Download,
+      };
+    }
+
+    // Estado de generación de embeddings (después de que el modelo esté listo)
+    if (embeddingProgress && embeddingProgress.label) {
+      const percent = embeddingProgress.percent ?? 0;
+      return {
+        type: 'downloading',
+        text: embeddingProgress.label,
+        percent: percent,
+        color: 'text-purple-600 dark:text-purple-400',
+        bg: 'bg-purple-500/10',
+        border: 'border-purple-500/20',
+        icon: Sparkles,
+      };
+    }
+
+    // Estado de guardando (sin progreso específico)
+    if (saveStatus.phase === 'saving') {
+      return {
+        type: 'saving',
+        text: saveStatus.message || 'Guardando',
+        color: 'text-blue-600 dark:text-blue-400',
+        bg: 'bg-blue-500/10',
+        border: 'border-blue-500/20',
+        icon: Loader2,
       };
     }
 
@@ -133,6 +163,40 @@ export const DocumentInfo = () => {
               className={cn('text-xs font-bold tracking-wide', current.color)}
             >
               <AnimatedPercentage percent={current.percent ?? 0} />
+            </span>
+          </motion.div>
+        ) : current.type === 'saving' ? (
+          <motion.div
+            key='saving-pill'
+            initial={{ opacity: 0, scale: 0.95, y: 5 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -5 }}
+            transition={{ duration: 0.2 }}
+            className={cn(
+              'flex items-center gap-2 px-4 py-1 rounded-full border',
+              current.bg,
+              current.border,
+            )}
+          >
+            {Icon && (
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{
+                  duration: 1,
+                  repeat: Infinity,
+                  ease: 'linear',
+                }}
+              >
+                <Icon className={cn('w-3.5 h-3.5 opacity-80', current.color)} />
+              </motion.div>
+            )}
+            <span
+              className={cn(
+                'text-xs font-semibold uppercase tracking-wide',
+                current.color,
+              )}
+            >
+              {current.text}
             </span>
           </motion.div>
         ) : current.type === 'status' ? (
