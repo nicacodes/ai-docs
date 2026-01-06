@@ -1,5 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
-import { HomeIcon, FileJson, FileText, Download, Pencil } from 'lucide-react';
+import {
+  HomeIcon,
+  FileJson,
+  FileText,
+  Download,
+  Pencil,
+  History,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ModeToggle } from './ui/mode-toggle';
 import { Button } from './ui/button';
@@ -11,18 +18,27 @@ import {
 } from './ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { exportPostAsMarkdown, exportPostAsPdf } from '@/lib/post-export';
+import { VersionHistory } from '@/components/VersionHistory';
 
 interface PostHeaderProps {
   title: string;
   rawMarkdown: string;
   slug: string;
+  documentId: string;
   className?: string;
 }
 
-function PostHeader({ title, rawMarkdown, slug, className }: PostHeaderProps) {
+function PostHeader({
+  title,
+  rawMarkdown,
+  slug,
+  documentId,
+  className,
+}: PostHeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showTitle, setShowTitle] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -129,6 +145,15 @@ function PostHeader({ title, rawMarkdown, slug, className }: PostHeaderProps) {
           </div>
           <div className='flex items-center gap-1.5 z-20'>
             <Button
+              onClick={() => setShowHistory(true)}
+              variant='ghost'
+              size='sm'
+              className='text-muted-foreground hover:text-foreground gap-1.5'
+            >
+              <History size={14} />
+              <span className='hidden sm:inline'>Historial</span>
+            </Button>
+            <Button
               asChild
               variant='ghost'
               size='sm'
@@ -166,6 +191,14 @@ function PostHeader({ title, rawMarkdown, slug, className }: PostHeaderProps) {
           </div>
         </div>
       </div>
+
+      {/* Panel de historial de versiones */}
+      <VersionHistory
+        documentId={documentId}
+        currentSlug={slug}
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+      />
     </div>
   );
 }

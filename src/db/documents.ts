@@ -2,6 +2,7 @@ import { eq, sql, inArray } from 'drizzle-orm';
 import { getDb } from './client';
 import { documents, user } from './schema';
 import { tags, documentTags } from './tags-schema';
+import { createVersion } from './versions';
 import { makeSlug } from './utils';
 
 // ============================================================================
@@ -149,7 +150,15 @@ export async function listDocuments(
       .innerJoin(tags, eq(documentTags.tagId, tags.id))
       .where(eq(tags.slug, tagSlug.trim()));
 
-    let query = db
+    // Construir condición de búsqueda
+    const baseCondition = inArray(documents.id, taggedDocIds);
+    const searchCondition = search?.trim()
+      ? sql`${documents.id} IN (${taggedDocIds}) AND LOWER(${
+          documents.title
+        }) LIKE ${`%${search.trim().toLowerCase()}%`}`
+      : baseCondition;
+
+    const rows = await db
       .select({
         id: documents.id,
         title: documents.title,
@@ -161,19 +170,12 @@ export async function listDocuments(
         updatedAt: documents.updatedAt,
       })
       .from(documents)
-      .where(inArray(documents.id, taggedDocIds))
+      .where(search?.trim() ? searchCondition : baseCondition)
       .orderBy(sql`${documents.createdAt} DESC`)
       .limit(limit)
       .offset(offset);
 
-    if (search?.trim()) {
-      const searchTerm = `%${search.trim().toLowerCase()}%`;
-      query = query.where(
-        sql`${documents.id} IN (${taggedDocIds}) AND LOWER(${documents.title}) LIKE ${searchTerm}`,
-      ) as typeof query;
-    }
-
-    return (await query) as DocumentRow[];
+    return rows as DocumentRow[];
   }
 
   // Query normal sin filtro de tag
@@ -257,7 +259,19 @@ export async function createDocument(
       title: documents.title,
     });
 
-  return inserted[0]!;
+  const doc = inserted[0]!;
+
+  // Crear primera versión del documento
+  await createVersion({
+    documentId: doc.id,
+    title: input.title,
+    rawMarkdown: input.rawMarkdown,
+    metadata: input.metadata ?? {},
+    createdBy: input.authorId ?? null,
+    changeMessage: 'Versión inicial',
+  });
+
+  return doc;
 }
 
 /**
@@ -283,7 +297,20 @@ export async function updateDocument(
       title: documents.title,
     });
 
-  return updated[0] ?? null;
+  const doc = updated[0];
+
+  if (doc) {
+    // Crear nueva versión (solo si el contenido cambió - la función lo verifica)
+    await createVersion({
+      documentId: doc.id,
+      title: input.title,
+      rawMarkdown: input.rawMarkdown,
+      metadata: input.metadata ?? {},
+      createdBy: input.authorId ?? null,
+    });
+  }
+
+  return doc ?? null;
 }
 
 /**

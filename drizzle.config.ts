@@ -8,6 +8,7 @@ export default {
     './src/db/proposals-schema.ts',
     './src/db/notifications-schema.ts',
     './src/db/tags-schema.ts',
+    './src/db/versions-schema.ts',
   ],
   out: './drizzle',
   dialect: 'postgresql',

@@ -32,6 +32,7 @@ const postTags = await getDocumentTags(post.id);
       title={post.title}
       rawMarkdown={post.rawMarkdown || ''}
       slug={post.slug}
+      documentId={post.id}
       client:load
     />
 
