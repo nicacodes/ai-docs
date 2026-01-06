@@ -327,3 +327,37 @@ export async function documentExists(id: string): Promise<boolean> {
 
   return rows.length > 0;
 }
+
+/**
+ * Elimina un documento por su ID.
+ * Las relaciones (embeddings, tags, versions, proposals) se eliminan automáticamente por CASCADE.
+ * @returns true si se eliminó, false si no existía
+ */
+export async function deleteDocument(id: string): Promise<boolean> {
+  const db = getDb();
+
+  const deleted = await db
+    .delete(documents)
+    .where(eq(documents.id, id))
+    .returning({ id: documents.id });
+
+  return deleted.length > 0;
+}
+
+/**
+ * Elimina un documento verificando que el usuario sea el autor.
+ * @returns true si se eliminó, false si no existía o no es el autor
+ */
+export async function deleteDocumentByAuthor(
+  id: string,
+  authorId: string,
+): Promise<boolean> {
+  const db = getDb();
+
+  const deleted = await db
+    .delete(documents)
+    .where(sql`${documents.id} = ${id} AND ${documents.authorId} = ${authorId}`)
+    .returning({ id: documents.id });
+
+  return deleted.length > 0;
+}

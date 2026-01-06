@@ -289,4 +289,48 @@ export const documentsActions = {
       }
     },
   }),
+
+  /**
+   * Elimina un documento.
+   * Solo el autor puede eliminar su propio documento.
+   */
+  delete: defineAction({
+    input: z.object({
+      id: z.string().uuid(),
+    }),
+    handler: async ({ id }, context) => {
+      // Verificar autenticación
+      const session = await auth.api.getSession({
+        headers: context.request.headers,
+      });
+
+      if (!session?.user?.id) {
+        throw new ActionError({
+          code: 'UNAUTHORIZED',
+          message: 'Debes iniciar sesión para eliminar documentos.',
+        });
+      }
+
+      try {
+        const { deleteDocumentByAuthor } = await import('../db/documents');
+        const deleted = await deleteDocumentByAuthor(id, session.user.id);
+
+        if (!deleted) {
+          throw new ActionError({
+            code: 'NOT_FOUND',
+            message: 'Documento no encontrado o no tienes permiso para eliminarlo.',
+          });
+        }
+
+        return { success: true };
+      } catch (err) {
+        if (err instanceof ActionError) throw err;
+        console.error('delete document failed', err);
+        throw new ActionError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Error eliminando el documento.',
+        });
+      }
+    },
+  }),
 };

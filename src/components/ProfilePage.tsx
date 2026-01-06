@@ -5,6 +5,7 @@
  */
 
 import { useState } from 'react';
+import { actions } from 'astro:actions';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +18,7 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  Trash2,
 } from 'lucide-react';
 
 interface Post {
@@ -93,6 +95,30 @@ export default function ProfilePage({ profileData }: ProfilePageProps) {
     type: 'success' | 'error';
     text: string;
   } | null>(null);
+
+  // Estado para posts y eliminación
+  const [posts, setPosts] = useState(profileData.posts);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const handleDeletePost = async (postId: string) => {
+    setDeletingId(postId);
+    try {
+      const result = await actions.documents.delete({ id: postId });
+      if (result.error) {
+        setSaveMessage({ type: 'error', text: result.error.message });
+        return;
+      }
+      // Eliminar del estado local
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      setSaveMessage({ type: 'success', text: 'Publicación eliminada' });
+    } catch {
+      setSaveMessage({ type: 'error', text: 'Error eliminando la publicación' });
+    } finally {
+      setDeletingId(null);
+      setConfirmDeleteId(null);
+    }
+  };
 
   const pendingReceived = profileData.receivedProposals.filter(
     (p) => p.status === 'pending',
@@ -300,7 +326,7 @@ export default function ProfilePage({ profileData }: ProfilePageProps) {
               </Button>
             </div>
 
-            {profileData.posts.length === 0 ? (
+            {posts.length === 0 ? (
               <div className='text-center py-12 text-muted-foreground'>
                 <FileText className='w-12 h-12 mx-auto mb-4 opacity-50' />
                 <p>No has creado ninguna publicación</p>
@@ -310,7 +336,7 @@ export default function ProfilePage({ profileData }: ProfilePageProps) {
               </div>
             ) : (
               <div className='space-y-2'>
-                {profileData.posts.map((post) => (
+                {posts.map((post) => (
                   <div
                     key={post.id}
                     className='flex items-center justify-between p-4 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors'
@@ -338,6 +364,37 @@ export default function ProfilePage({ profileData }: ProfilePageProps) {
                       <Button asChild variant='ghost' size='sm'>
                         <a href={`/editor/${post.slug}`}>Editar</a>
                       </Button>
+                      
+                      {/* Botón eliminar con confirmación */}
+                      {confirmDeleteId === post.id ? (
+                        <div className='flex items-center gap-1'>
+                          <Button
+                            variant='destructive'
+                            size='sm'
+                            onClick={() => handleDeletePost(post.id)}
+                            disabled={deletingId === post.id}
+                          >
+                            {deletingId === post.id ? 'Eliminando...' : 'Confirmar'}
+                          </Button>
+                          <Button
+                            variant='ghost'
+                            size='sm'
+                            onClick={() => setConfirmDeleteId(null)}
+                            disabled={deletingId === post.id}
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant='ghost'
+                          size='sm'
+                          onClick={() => setConfirmDeleteId(post.id)}
+                          className='text-destructive hover:text-destructive hover:bg-destructive/10'
+                        >
+                          <Trash2 className='w-4 h-4' />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
