@@ -318,7 +318,8 @@ export const documentsActions = {
         if (!deleted) {
           throw new ActionError({
             code: 'NOT_FOUND',
-            message: 'Documento no encontrado o no tienes permiso para eliminarlo.',
+            message:
+              'Documento no encontrado o no tienes permiso para eliminarlo.',
           });
         }
 

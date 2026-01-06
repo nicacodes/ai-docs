@@ -113,7 +113,10 @@ export default function ProfilePage({ profileData }: ProfilePageProps) {
       setPosts((prev) => prev.filter((p) => p.id !== postId));
       setSaveMessage({ type: 'success', text: 'Publicación eliminada' });
     } catch {
-      setSaveMessage({ type: 'error', text: 'Error eliminando la publicación' });
+      setSaveMessage({
+        type: 'error',
+        text: 'Error eliminando la publicación',
+      });
     } finally {
       setDeletingId(null);
       setConfirmDeleteId(null);
@@ -364,7 +367,7 @@ export default function ProfilePage({ profileData }: ProfilePageProps) {
                       <Button asChild variant='ghost' size='sm'>
                         <a href={`/editor/${post.slug}`}>Editar</a>
                       </Button>
-                      
+
                       {/* Botón eliminar con confirmación */}
                       {confirmDeleteId === post.id ? (
                         <div className='flex items-center gap-1'>
@@ -374,7 +377,9 @@ export default function ProfilePage({ profileData }: ProfilePageProps) {
                             onClick={() => handleDeletePost(post.id)}
                             disabled={deletingId === post.id}
                           >
-                            {deletingId === post.id ? 'Eliminando...' : 'Confirmar'}
+                            {deletingId === post.id
+                              ? 'Eliminando...'
+                              : 'Confirmar'}
                           </Button>
                           <Button
                             variant='ghost'
