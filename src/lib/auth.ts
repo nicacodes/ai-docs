@@ -28,6 +28,14 @@ export const auth = betterAuth({
   // Secret para firmar tokens (genera uno seguro para producción)
   secret: getEnvVar('BETTER_AUTH_SECRET', 'dev-secret-change-in-production'),
 
+  // Orígenes confiables (permite acceso desde red local)
+  trustedOrigins: [
+    'http://localhost:4321',
+    'http://127.0.0.1:4321',
+    // Permite cualquier IP de red local
+    ...(process.env.TRUSTED_ORIGINS?.split(',') || []),
+  ],
+
   // Adapter de Drizzle con PostgreSQL
   database: drizzleAdapter(getDb(), {
     provider: 'pg',

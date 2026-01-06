@@ -56,6 +56,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-aidocs}:${POSTGRES_PASSWORD:-aidocs_secret}@postgres:5432/${POSTGRES_DB:-ai_docs}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:4321}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-docker-dev-secret-change-in-production}
+      TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
     ports:
       - '${APP_PORT:-4321}:4321'
 

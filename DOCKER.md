@@ -73,15 +73,31 @@ make clean     # Limpiar todo (⚠️ borra datos)
 
 ### Variables de Entorno
 
-| Variable             | Descripción                   | Default                  |
-| -------------------- | ----------------------------- | ------------------------ |
-| `POSTGRES_USER`      | Usuario de PostgreSQL         | `aidocs`                 |
-| `POSTGRES_PASSWORD`  | Contraseña de PostgreSQL      | `aidocs_secret`          |
-| `POSTGRES_DB`        | Nombre de la base de datos    | `ai_docs`                |
-| `DB_PORT`            | Puerto expuesto de PostgreSQL | `5432`                   |
-| `APP_PORT`           | Puerto expuesto de la app     | `4321`                   |
-| `BETTER_AUTH_URL`    | URL base de la aplicación     | `http://localhost:4321`  |
-| `BETTER_AUTH_SECRET` | Secret para tokens JWT        | ⚠️ Cambiar en producción |
+| Variable             | Descripción                          | Default                  |
+| -------------------- | ------------------------------------ | ------------------------ |
+| `POSTGRES_USER`      | Usuario de PostgreSQL                | `aidocs`                 |
+| `POSTGRES_PASSWORD`  | Contraseña de PostgreSQL             | `aidocs_secret`          |
+| `POSTGRES_DB`        | Nombre de la base de datos           | `ai_docs`                |
+| `DB_PORT`            | Puerto expuesto de PostgreSQL        | `5432`                   |
+| `APP_PORT`           | Puerto expuesto de la app            | `4321`                   |
+| `BETTER_AUTH_URL`    | URL base de la aplicación            | `http://localhost:4321`  |
+| `BETTER_AUTH_SECRET` | Secret para tokens JWT               | ⚠️ Cambiar en producción |
+| `TRUSTED_ORIGINS`    | IPs permitidas (separadas por comas) | (vacío)                  |
+
+### Acceso desde Red Local
+
+Para acceder desde otros dispositivos en tu red local:
+
+1. Obtén la IP de tu máquina: `ipconfig` (Windows) o `ip addr` (Linux)
+2. Agrega la IP a `.env`:
+   ```bash
+   TRUSTED_ORIGINS=http://192.168.1.100:4321,http://10.11.15.80:4321
+   ```
+3. Reinicia los contenedores:
+   ```bash
+   docker compose down && docker compose up -d
+   ```
+4. Accede desde otro dispositivo: `http://TU_IP:4321`
 
 ### Generar Secret Seguro
 
