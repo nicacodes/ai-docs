@@ -72,8 +72,11 @@ COPY --from=builder /app/public ./public
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
+# Crear directorio de uploads
+RUN mkdir -p /app/uploads
+
 # Cambiar propietario de archivos
-RUN chown -R astro:nodejs /app
+RUN chown -R astro:nodejs /app /app/uploads
 
 USER astro
 

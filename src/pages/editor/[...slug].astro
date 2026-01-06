@@ -145,6 +145,26 @@ const pageTitle =
       initialContent = savedDraft || '# ';
     }
 
+    // Función para subir imágenes al servidor
+    async function uploadImage(file: File): Promise<string> {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include', // Incluir cookies de sesión
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al subir imagen');
+      }
+
+      const result = await response.json();
+      return result.url;
+    }
+
     crepeInstance = new Crepe({
       root: '#app',
       defaultValue: initialContent,
@@ -152,6 +172,13 @@ const pageTitle =
         placeholder: {
           text: mode === 'new' ? 'Nueva página' : 'Escribe aquí...',
           mode: 'block',
+        },
+        [Crepe.Feature.ImageBlock]: {
+          onUpload: uploadImage,
+          blockUploadButton: 'Subir imagen',
+          blockUploadPlaceholderText: 'o pega un enlace...',
+          blockCaptionPlaceholderText: 'Descripción de la imagen',
+          inlineUploadPlaceholderText: 'o pega un enlace...',
         },
       },
     });

@@ -57,11 +57,16 @@ services:
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:4321}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-docker-dev-secret-change-in-production}
       TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads_data:/app/uploads
     ports:
       - '${APP_PORT:-4321}:4321'
 
 volumes:
   postgres_data:
+    driver: local
+  uploads_data:
     driver: local
 
 networks:

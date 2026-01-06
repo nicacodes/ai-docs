@@ -22,3 +22,7 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# Uploaded files (keep .gitkeep)
+public/uploads/*
+!public/uploads/.gitkeep
