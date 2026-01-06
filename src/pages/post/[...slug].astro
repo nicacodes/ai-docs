@@ -6,6 +6,7 @@ import { PostHeader } from '@/components/PostHeader';
 import { TagList } from '@/components/TagBadge';
 import { getDocumentBySlugWithAuthor } from '@/db/documents';
 import { getDocumentTags } from '@/db/tags';
+import { auth } from '@/lib/auth';
 
 export const prerender = false;
 
@@ -22,6 +23,12 @@ if (!post) {
   return Astro.redirect('/');
 }
 
+// Verificar si el usuario actual es el autor
+const session = await auth.api.getSession({
+  headers: Astro.request.headers,
+});
+const isAuthor = session?.user?.id === post.authorId;
+
 // Fetch tags for the document
 const postTags = await getDocumentTags(post.id);
 ---
@@ -33,6 +40,7 @@ const postTags = await getDocumentTags(post.id);
       rawMarkdown={post.rawMarkdown || ''}
       slug={post.slug}
       documentId={post.id}
+      isAuthor={isAuthor}
       client:load
     />
 

@@ -107,6 +107,20 @@ export const versions = {
         throw new Error('Versión no encontrada');
       }
 
+      // Verificar que el usuario sea el autor del documento
+      const { getDocumentById } = await import('@/db/documents');
+      const document = await getDocumentById(versionToRestore.documentId);
+
+      if (!document) {
+        throw new Error('Documento no encontrado');
+      }
+
+      if (document.authorId !== session.user.id) {
+        throw new Error(
+          'Solo el autor puede restaurar versiones de este documento',
+        );
+      }
+
       // Guardar el documento con el contenido de la versión antigua
       // Esto automáticamente creará una nueva versión
       const saved = await updateDocument(versionToRestore.documentId, {

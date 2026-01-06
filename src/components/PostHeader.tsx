@@ -25,6 +25,7 @@ interface PostHeaderProps {
   rawMarkdown: string;
   slug: string;
   documentId: string;
+  isAuthor?: boolean;
   className?: string;
 }
 
@@ -33,6 +34,7 @@ function PostHeader({
   rawMarkdown,
   slug,
   documentId,
+  isAuthor = false,
   className,
 }: PostHeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -209,6 +211,7 @@ function PostHeader({
         currentSlug={slug}
         isOpen={showHistory}
         onClose={() => setShowHistory(false)}
+        isAuthor={isAuthor}
       />
     </div>
   );

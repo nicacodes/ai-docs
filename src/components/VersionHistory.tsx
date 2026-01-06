@@ -73,12 +73,14 @@ interface VersionHistoryProps {
   currentSlug: string;
   isOpen: boolean;
   onClose: () => void;
+  isAuthor?: boolean;
 }
 
 export function VersionHistory({
   documentId,
   isOpen,
   onClose,
+  isAuthor = false,
 }: VersionHistoryProps) {
   const [versions, setVersions] = useState<VersionSummary[]>([]);
   const [total, setTotal] = useState(0);
@@ -297,19 +299,27 @@ export function VersionHistory({
                   <h3 className='font-medium text-sm truncate'>
                     {previewTitle}
                   </h3>
-                  <Button
-                    onClick={() => handleRestore(selectedVersion)}
-                    disabled={isRestoring}
-                    size='sm'
-                    className='mt-2 gap-2 w-full'
-                  >
-                    {isRestoring ? (
-                      <Loader2 className='w-4 h-4 animate-spin' />
-                    ) : (
-                      <RotateCcw className='w-4 h-4' />
-                    )}
-                    {isRestoring ? 'Restaurando...' : 'Restaurar esta versión'}
-                  </Button>
+                  {isAuthor ? (
+                    <Button
+                      onClick={() => handleRestore(selectedVersion)}
+                      disabled={isRestoring}
+                      size='sm'
+                      className='mt-2 gap-2 w-full'
+                    >
+                      {isRestoring ? (
+                        <Loader2 className='w-4 h-4 animate-spin' />
+                      ) : (
+                        <RotateCcw className='w-4 h-4' />
+                      )}
+                      {isRestoring
+                        ? 'Restaurando...'
+                        : 'Restaurar esta versión'}
+                    </Button>
+                  ) : (
+                    <p className='mt-2 text-xs text-muted-foreground text-center py-2'>
+                      Solo el autor puede restaurar versiones
+                    </p>
+                  )}
                 </div>
 
                 {/* Preview content */}
