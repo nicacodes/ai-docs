@@ -10,7 +10,36 @@ import {
 
 // Configuración
 env.allowLocalModels = false;
-env.useBrowserCache = true;
+
+// Detectar si el cache del navegador está disponible
+// En Workers accediendo desde IPs de red local (no localhost), puede no estar disponible
+async function checkCacheAvailable() {
+  try {
+    if (typeof caches === 'undefined') return false;
+    // Intentar abrir un cache de prueba
+    await caches.open('test-cache-availability');
+    await caches.delete('test-cache-availability');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Inicializar configuración de cache
+let cacheConfigured = false;
+async function ensureCacheConfig() {
+  if (cacheConfigured) return;
+  cacheConfigured = true;
+
+  const cacheAvailable = await checkCacheAvailable();
+  if (cacheAvailable) {
+    env.useBrowserCache = true;
+    console.log('[Worker] Browser cache disponible');
+  } else {
+    env.useBrowserCache = false;
+    console.warn('[Worker] Browser cache NO disponible, deshabilitando caché');
+  }
+}
 
 // Singleton del pipeline
 let featureExtractionPipeline = null;
@@ -52,14 +81,17 @@ function detectDevice(preferredDevice) {
   if (preferredDevice && preferredDevice !== 'auto') {
     return preferredDevice;
   }
-  
+
   const hasWebGPU = typeof navigator !== 'undefined' && !!navigator.gpu;
   return hasWebGPU ? 'webgpu' : 'wasm';
 }
 
 async function ensurePipeline({ modelId, device, reportProgress }) {
+  // Asegurar configuración de cache antes de cargar
+  await ensureCacheConfig();
+
   const resolvedDevice = detectDevice(device);
-  
+
   if (
     featureExtractionPipeline &&
     currentConfig.modelId === modelId &&
@@ -67,7 +99,12 @@ async function ensurePipeline({ modelId, device, reportProgress }) {
   ) {
     // Modelo ya está en memoria - notificar que está listo
     if (reportProgress) {
-      reportProgress({ phase: 'cached', label: 'Modelo en memoria', percent: 100, fromCache: true });
+      reportProgress({
+        phase: 'cached',
+        label: 'Modelo en memoria',
+        percent: 100,
+        fromCache: true,
+      });
     }
     return featureExtractionPipeline;
   }
@@ -80,10 +117,17 @@ async function ensurePipeline({ modelId, device, reportProgress }) {
 
   // Mostrar estado inicial neutro
   if (report) {
-    report({ phase: 'loading', label: 'Preparando modelo', percent: 0, fromCache: false });
+    report({
+      phase: 'loading',
+      label: 'Preparando modelo',
+      percent: 0,
+      fromCache: false,
+    });
   }
 
-  console.log(`[Worker] Iniciando pipeline: model=${modelId}, device=${resolvedDevice}`);
+  console.log(
+    `[Worker] Iniciando pipeline: model=${modelId}, device=${resolvedDevice}`,
+  );
 
   try {
     featureExtractionPipeline = await pipeline('feature-extraction', modelId, {
@@ -101,7 +145,9 @@ async function ensurePipeline({ modelId, device, reportProgress }) {
           const pct = Math.round((data.loaded / data.total) * 100);
           report({
             phase: 'loading',
-            label: data.file ? `Descargando ${data.file}` : 'Descargando modelo',
+            label: data.file
+              ? `Descargando ${data.file}`
+              : 'Descargando modelo',
             percent: pct,
             fromCache: false,
           });
@@ -131,15 +177,19 @@ async function ensurePipeline({ modelId, device, reportProgress }) {
     const loadedFromCache = !hadDownloadProgress || loadTime < 2000;
 
     if (report) {
-      report({ 
-        phase: 'ready', 
-        label: loadedFromCache ? 'Modelo cargado desde caché' : 'Modelo descargado', 
+      report({
+        phase: 'ready',
+        label: loadedFromCache
+          ? 'Modelo cargado desde caché'
+          : 'Modelo descargado',
         percent: 100,
         fromCache: loadedFromCache,
       });
     }
 
-    console.log(`[Worker] Pipeline listo: ${modelId} en ${resolvedDevice} (cache: ${loadedFromCache})`);
+    console.log(
+      `[Worker] Pipeline listo: ${modelId} en ${resolvedDevice} (cache: ${loadedFromCache})`,
+    );
     return featureExtractionPipeline;
   } catch (err) {
     console.error('[Worker] Error inicializando pipeline:', err);
@@ -168,8 +218,7 @@ self.addEventListener('message', async (event) => {
     }
 
     if (type === 'init') {
-      const modelId =
-        payload?.modelId || 'Xenova/multilingual-e5-small';
+      const modelId = payload?.modelId || 'Xenova/multilingual-e5-small';
       const device = payload?.device || 'auto';
 
       postProgress(requestId, {
