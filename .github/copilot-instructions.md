@@ -1,8 +1,10 @@
-# AI Blog - Contexto para Agentes AI
+# AI Docs - Contexto para Agentes AI
 
 ## Qué es este proyecto
 
-Blog con **búsqueda semántica por IA** que corre 100% en el navegador (WebAssembly). El usuario escribe posts en Markdown y puede buscarlos por significado, no solo palabras clave.
+Blog con **búsqueda semántica por IA** que corre 100% en el navegador
+(WebAssembly). El usuario escribe posts en Markdown y puede buscarlos por
+significado, no solo palabras clave.
 
 ## Stack principal
 
@@ -66,7 +68,8 @@ Usar alias `@/*` → `src/*`
 ### Estado
 
 - Usar Nanostores + `useStore()` de `@nanostores/react`
-- Estados de búsqueda: `idle → loading-model → generating-embedding → searching → done`
+- Estados de búsqueda:
+  `idle → loading-model → generating-embedding → searching → done`
 
 ### UI/Estilos
 

@@ -10,7 +10,7 @@ export const prerender = false;
 const query = Astro.url.searchParams.get('q') || '';
 ---
 
-<Layout title={query ? `Búsqueda: ${query} - AI Blog` : 'Búsqueda - AI Blog'}>
+<Layout title={query ? `Búsqueda: ${query} - AI Docs` : 'Búsqueda - AI Docs'}>
   <div class='space-y-6'>
     <GlobalHeader client:load showSearch={false} initialQuery={query} />
 

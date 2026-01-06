@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">✨ AI Blog</h1>
+  <h1 align="center">✨ AI Docs</h1>
   <p align="center">
     <strong>Blog potenciado por IA con búsqueda semántica y editor Markdown avanzado</strong>
   </p>
@@ -26,13 +26,19 @@
 
 ## 🚀 Descripción
 
-**AI Blog** es una plataforma de blogging moderna que integra inteligencia artificial para ofrecer una experiencia única de escritura y búsqueda. Utiliza embeddings semánticos generados directamente en el navegador para permitir búsquedas inteligentes que entienden el contexto y significado de tus consultas.
+**AI Docs** es una plataforma de blogging moderna que integra inteligencia
+artificial para ofrecer una experiencia única de escritura y búsqueda. Utiliza
+embeddings semánticos generados directamente en el navegador para permitir
+búsquedas inteligentes que entienden el contexto y significado de tus consultas.
 
-### ¿Por qué AI Blog?
+### ¿Por qué AI Docs?
 
-- 🧠 **Búsqueda Semántica**: No solo busca palabras clave, entiende el significado de tu consulta
-- ⚡ **IA en el Navegador**: Los embeddings se generan localmente usando WebAssembly, sin enviar datos a servidores externos
-- ✍️ **Editor Rico**: Milkdown ofrece una experiencia de edición Markdown fluida y moderna
+- 🧠 **Búsqueda Semántica**: No solo busca palabras clave, entiende el
+  significado de tu consulta
+- ⚡ **IA en el Navegador**: Los embeddings se generan localmente usando
+  WebAssembly, sin enviar datos a servidores externos
+- ✍️ **Editor Rico**: Milkdown ofrece una experiencia de edición Markdown fluida
+  y moderna
 - 🌙 **Dark Mode**: Soporte completo para modo oscuro con transiciones suaves
 
 ---
@@ -218,12 +224,13 @@ sequenceDiagram
 
 ### Modelo de Embeddings
 
-Por defecto se usa `Xenova/multilingual-e5-small` (384 dimensiones). Puedes cambiarlo en `src/scripts/ai-embeddings.ts`:
+Por defecto se usa `Xenova/multilingual-e5-small` (384 dimensiones). Puedes
+cambiarlo en `src/scripts/ai-embeddings.ts`:
 
 ```typescript
 const DEFAULT_MODEL: EmbeddingModelConfig = {
-  modelId: "Xenova/multilingual-e5-small",
-  device: "wasm", // o 'webgpu' si tu navegador lo soporta
+  modelId: 'Xenova/multilingual-e5-small',
+  device: 'wasm', // o 'webgpu' si tu navegador lo soporta
 };
 ```
 
@@ -239,7 +246,8 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 ## 📄 Licencia
 
-Este proyecto está bajo la licencia MIT. Ver el archivo [LICENSE](LICENSE) para más detalles.
+Este proyecto está bajo la licencia MIT. Ver el archivo [LICENSE](LICENSE) para
+más detalles.
 
 ---
 
