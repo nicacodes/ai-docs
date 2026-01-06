@@ -1,0 +1,68 @@
+# =============================================================================
+# Docker Compose - AI Docs
+# =============================================================================
+# Ejecutar: docker compose up -d
+# Acceder: http://localhost:4321
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL con pgvector
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ai-docs-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aidocs}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aidocs_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-ai_docs}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - '${DB_PORT:-5432}:5432'
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-aidocs} -d ${POSTGRES_DB:-ai_docs}',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ---------------------------------------------------------------------------
+  # Aplicación AI Docs
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DATABASE_URL: postgresql://${POSTGRES_USER:-aidocs}:${POSTGRES_PASSWORD:-aidocs_secret}@postgres:5432/${POSTGRES_DB:-ai_docs}
+        BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:4321}
+        BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-docker-dev-secret-change-in-production}
+    container_name: ai-docs-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 4321
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aidocs}:${POSTGRES_PASSWORD:-aidocs_secret}@postgres:5432/${POSTGRES_DB:-ai_docs}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:4321}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-docker-dev-secret-change-in-production}
+    ports:
+      - '${APP_PORT:-4321}:4321'
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  default:
+    name: ai-docs-network

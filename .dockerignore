@@ -1,0 +1,46 @@
+# Archivos de Docker (no necesarios en la imagen final)
+Dockerfile
+docker-compose.yml
+DOCKER.md
+Makefile
+.env.docker.example
+
+# Dependencias
+node_modules/
+
+# Archivos de desarrollo
+.git/
+.gitignore
+.env
+.env.local
+.env.*.local
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Tests
+coverage/
+.nyc_output/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Archivos temporales
+*.tmp
+*.temp
+
+# README y docs (opcional incluir en prod)
+README.md
+docs/
+
+# Drizzle studio config (no necesario en producción)
+drizzle.studio.json
