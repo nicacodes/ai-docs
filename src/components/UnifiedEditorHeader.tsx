@@ -491,29 +491,35 @@ export function UnifiedEditorHeader({
               )}
 
               {mode !== 'new' && (
-                <span className='text-sm font-medium truncate max-w-50'>
-                  {currentTitle || initialTitle}
-                </span>
+                <Menubar className='border-none shadow-none bg-transparent p-0 h-auto'>
+                  <MenubarMenu>
+                    <MenubarTrigger className='cursor-pointer font-medium text-sm px-2.5 py-1.5 h-8 data-[state=open]:bg-accent/50 rounded-md transition-colors'>
+                      <Menu className='w-4 h-4 sm:hidden' />
+                      <span className='hidden sm:inline'>Archivo</span>
+                    </MenubarTrigger>
+                    <MenubarContent align='start'>
+                      <MenubarItem onClick={() => importMarkdown()}>
+                        <FolderUp className='mr-2 h-4 w-4' /> Importar...
+                      </MenubarItem>
+                      <MenubarSeparator />
+                      <MenubarItem onClick={() => exportMarkdown()}>
+                        <FileJson className='mr-2 h-4 w-4' /> Exportar MD
+                      </MenubarItem>
+                      <MenubarItem onClick={() => exportPdf()}>
+                        <FileText className='mr-2 h-4 w-4' /> Exportar PDF
+                      </MenubarItem>
+                    </MenubarContent>
+                  </MenubarMenu>
+                </Menubar>
               )}
             </div>
 
-            {/* Center: Document info (modo new y edit durante guardado) */}
-            {(mode === 'new' ||
-              (mode === 'edit' &&
-                (saveStatus.phase !== 'idle' || isSaving))) && (
+            {/* Center: Document info (modo new y edit) */}
+            {(mode === 'new' || mode === 'edit') && (
               <div className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-full max-w-75 flex justify-center pointer-events-none'>
                 <div className='pointer-events-auto'>
                   <DocumentInfo />
                 </div>
-              </div>
-            )}
-
-            {/* Center: Title (modo edit cuando no está guardando) */}
-            {mode === 'edit' && saveStatus.phase === 'idle' && !isSaving && (
-              <div className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10'>
-                <span className='text-sm font-medium text-foreground/80 truncate max-w-60 block'>
-                  {currentTitle || initialTitle}
-                </span>
               </div>
             )}
 

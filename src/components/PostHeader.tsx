@@ -109,7 +109,8 @@ function PostHeader({
               : 'bg-background/95 backdrop-blur-xl rounded-xl',
           )}
         >
-          <div className='flex items-center gap-3 z-20'>
+          {/* Left: Logo - se compacta al hacer scroll */}
+          <div className='flex items-center gap-3 z-20 shrink-0'>
             <a href='/' className='flex items-center gap-2.5 group'>
               <div className='size-8 rounded-lg bg-linear-to-br from-foreground/90 to-foreground/70 dark:from-foreground/80 dark:to-foreground/60 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow'>
                 <HomeIcon
@@ -117,12 +118,19 @@ function PostHeader({
                   className='text-background group-hover:scale-110 transition-transform'
                 />
               </div>
-              <span className='font-semibold text-base text-foreground hidden sm:block'>
+              <span
+                className={cn(
+                  'font-semibold text-base text-foreground transition-all duration-300',
+                  isScrolled ? 'hidden' : 'hidden sm:block',
+                )}
+              >
                 AI Docs
               </span>
             </a>
           </div>
-          <div className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 max-w-56 hidden sm:block overflow-hidden'>
+
+          {/* Center: Título animado - aparece al scroll, con flex-1 para ocupar espacio disponible */}
+          <div className='flex-1 flex justify-center items-center min-w-0 mx-4'>
             <AnimatePresence mode='wait'>
               {showTitle && (
                 <motion.h1
@@ -136,14 +144,17 @@ function PostHeader({
                     opacity: { duration: 0.2 },
                     filter: { duration: 0.2 },
                   }}
-                  className='text-[17px]! font-medium text-foreground/80 truncate'
+                  className='text-sm! font-medium text-foreground/80 truncate max-w-full text-center'
+                  title={title}
                 >
                   {title}
                 </motion.h1>
               )}
             </AnimatePresence>
           </div>
-          <div className='flex items-center gap-1.5 z-20'>
+
+          {/* Right: Actions - siempre visibles con shrink-0 */}
+          <div className='flex items-center gap-1.5 z-20 shrink-0'>
             <Button
               onClick={() => setShowHistory(true)}
               variant='ghost'
