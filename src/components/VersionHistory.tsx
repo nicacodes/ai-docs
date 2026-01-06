@@ -20,7 +20,6 @@ import { actions } from 'astro:actions';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
-  DrawerClose,
   DrawerContent,
   DrawerDescription,
   DrawerHeader,

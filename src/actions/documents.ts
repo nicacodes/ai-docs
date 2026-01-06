@@ -25,7 +25,7 @@ import {
   validateEmbeddingDimensions,
   EMBEDDING_DIMENSIONS,
 } from '../db/embeddings';
-import { semanticSearch } from '../db/semantic-search';
+import { semanticSearch, getSearchSuggestions } from '../db/semantic-search';
 import { pickDbError } from '../db/utils';
 import { extractExcerpt } from '../lib/embedding-utils';
 
@@ -70,6 +70,20 @@ const getBySlugSchema = z.object({
 const semanticSearchSchema = z.object({
   queryEmbedding: z.array(z.number()),
   limit: z.number().int().min(1).max(50).default(10),
+  filters: z
+    .object({
+      tagSlugs: z.array(z.string()).optional(),
+      authorId: z.string().optional(),
+      dateFrom: z.string().optional(), // ISO date string
+      dateTo: z.string().optional(), // ISO date string
+      minSimilarity: z.number().min(0).max(1).optional(),
+    })
+    .optional(),
+});
+
+const suggestionsSchema = z.object({
+  query: z.string().min(1),
+  limit: z.number().int().min(1).max(10).default(5),
 });
 
 // ============================================================================
@@ -223,10 +237,11 @@ export const documentsActions = {
 
   /**
    * Realiza búsqueda semántica usando embeddings.
+   * Soporta filtros opcionales: tags, autor, rango de fechas.
    */
   semanticSearch: defineAction({
     input: semanticSearchSchema,
-    handler: async ({ queryEmbedding, limit }) => {
+    handler: async ({ queryEmbedding, limit, filters }) => {
       if (!validateEmbeddingDimensions(queryEmbedding)) {
         throw new ActionError({
           code: 'BAD_REQUEST',
@@ -235,12 +250,41 @@ export const documentsActions = {
       }
 
       try {
-        return await semanticSearch(queryEmbedding, limit);
+        // Convertir fechas de string ISO a Date
+        const parsedFilters = filters
+          ? {
+              ...filters,
+              dateFrom: filters.dateFrom
+                ? new Date(filters.dateFrom)
+                : undefined,
+              dateTo: filters.dateTo ? new Date(filters.dateTo) : undefined,
+            }
+          : undefined;
+
+        return await semanticSearch(queryEmbedding, limit, parsedFilters);
       } catch (err) {
         console.error('semanticSearch failed', err);
         throw new ActionError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Error realizando búsqueda semántica.',
+        });
+      }
+    },
+  }),
+
+  /**
+   * Obtiene sugerencias de autocompletado basadas en títulos.
+   */
+  getSuggestions: defineAction({
+    input: suggestionsSchema,
+    handler: async ({ query, limit }) => {
+      try {
+        return await getSearchSuggestions(query, limit);
+      } catch (err) {
+        console.error('getSuggestions failed', err);
+        throw new ActionError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Error obteniendo sugerencias.',
         });
       }
     },

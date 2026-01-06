@@ -1,31 +1,52 @@
 ---
-import Layout from "@/layouts/layout.astro";
-import { GlobalHeader } from "@/components/GlobalHeader";
-import { SearchResults } from "@/components/SearchResults";
+import Layout from '@/layouts/layout.astro';
+import { GlobalHeader } from '@/components/GlobalHeader';
+import { SearchResults } from '@/components/SearchResults';
+import { SearchAutocomplete } from '@/components/SearchAutocomplete';
 
 export const prerender = false;
 
 // Get search query from URL
-const query = Astro.url.searchParams.get("q") || "";
+const query = Astro.url.searchParams.get('q') || '';
 ---
 
-<Layout title={query ? `Búsqueda: ${query} - AI Blog` : "Búsqueda - AI Blog"}>
-  <div class="space-y-6">
-    <GlobalHeader client:load showSearch={true} initialQuery={query} />
+<Layout title={query ? `Búsqueda: ${query} - AI Blog` : 'Búsqueda - AI Blog'}>
+  <div class='space-y-6'>
+    <GlobalHeader client:load showSearch={false} initialQuery={query} />
 
-    <main class="px-1 mt-6">
-      <header class="mb-8">
+    <main class='px-1 mt-6'>
+      <header class='mb-8'>
         <h1
-          class="text-3xl sm:text-4xl font-bold bg-linear-to-r from-foreground to-muted-foreground bg-clip-text text-transparent"
+          class='text-3xl sm:text-4xl font-bold bg-linear-to-r from-foreground to-muted-foreground bg-clip-text text-transparent'
         >
           Búsqueda Semántica
         </h1>
-        <p class="text-muted-foreground mt-2 text-base sm:text-lg">
+        <p class='text-muted-foreground mt-2 text-base sm:text-lg'>
           Encuentra posts usando inteligencia artificial
         </p>
       </header>
+
+      <!-- Search input with autocomplete -->
+      <div class='mb-8' id='search-input-container'>
+        <SearchAutocomplete
+          client:load
+          value={query}
+          placeholder='Escribe para buscar o ir a un documento...'
+          autoFocus={!query}
+        />
+      </div>
 
       <SearchResults client:load query={query} />
     </main>
   </div>
 </Layout>
+
+<script>
+  // Handle search navigation from SearchAutocomplete
+  document.addEventListener('astro:page-load', () => {
+    const container = document.getElementById('search-input-container');
+    if (!container) return;
+
+    // The SearchAutocomplete component will handle navigation via window.location
+  });
+</script>

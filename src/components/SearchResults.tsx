@@ -4,230 +4,304 @@ import { Search, Sparkles, AlertCircle, FileText } from 'lucide-react';
 import { embedQuery } from '@/scripts/ai-embeddings';
 import { PostItem } from './PostItem';
 import { SearchResultSkeleton } from './SearchResultSkeleton';
+import {
+  SearchFilters,
+  defaultFilters,
+  type SearchFiltersState,
+} from './SearchFilters';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import {
-    startSearch,
-    setGeneratingEmbedding,
-    setSearchingPhase,
-    setSearchProgress,
-    finishSearch,
-    setSearchError,
-    resetSearch,
-    type SearchResult,
-    type SearchPhase,
+  startSearch,
+  setGeneratingEmbedding,
+  setSearchingPhase,
+  setSearchProgress,
+  finishSearch,
+  setSearchError,
+  resetSearch,
+  type SearchResult,
+  type SearchPhase,
 } from '@/store/search-store';
 
 interface SearchResultsProps {
-    query: string;
-    className?: string;
+  query: string;
+  className?: string;
 }
 
 function SearchResults({ query, className }: SearchResultsProps) {
-    const [results, setResults] = useState<SearchResult[]>([]);
-    const [phase, setPhase] = useState<SearchPhase>('idle');
-    const [error, setError] = useState<string | null>(null);
-    const [progressInfo, setProgressInfo] = useState<string>('');
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [phase, setPhase] = useState<SearchPhase>('idle');
+  const [error, setError] = useState<string | null>(null);
+  const [progressInfo, setProgressInfo] = useState<string>('');
+  const [filters, setFilters] = useState<SearchFiltersState>(defaultFilters);
 
-    const performSearch = useCallback(async (searchQuery: string) => {
-        if (!searchQuery.trim()) {
-            setResults([]);
-            setPhase('idle');
-            resetSearch();
-            return;
-        }
+  const performSearch = useCallback(
+    async (searchQuery: string, searchFilters: SearchFiltersState) => {
+      if (!searchQuery.trim()) {
+        setResults([]);
+        setPhase('idle');
+        resetSearch();
+        return;
+      }
 
-        setError(null);
-        setPhase('loading-model');
-        setProgressInfo('Cargando modelo de embeddings...');
+      setError(null);
+      setPhase('loading-model');
+      setProgressInfo('Cargando modelo de embeddings...');
 
-        // Update global store - notifies GlobalHeader
-        startSearch(searchQuery);
+      // Update global store - notifies GlobalHeader
+      startSearch(searchQuery);
 
-        try {
-            // 1) Generar embedding de la query
-            setPhase('generating-embedding');
-            setProgressInfo('Generando embedding de la búsqueda...');
-            setGeneratingEmbedding();
+      try {
+        // 1) Generar embedding de la query
+        setPhase('generating-embedding');
+        setProgressInfo('Generando embedding de la búsqueda...');
+        setGeneratingEmbedding();
 
-            const queryEmbedding = await embedQuery({
-                query: searchQuery,
-                onProgress: (p: any) => {
-                    if (p?.status === 'progress' && p?.file) {
-                        const percent = Math.round((p.loaded / p.total) * 100);
-                        setProgressInfo(`Descargando modelo: ${percent}%`);
-                        setSearchProgress({ label: `Descargando modelo: ${percent}%`, percent });
-                    }
-                },
-            });
-
-            // 2) Realizar búsqueda semántica
-            setPhase('searching');
-            setProgressInfo('Buscando documentos similares...');
-            setSearchingPhase();
-
-            const result = await actions.documents.semanticSearch({
-                queryEmbedding,
-                limit: 15,
-            });
-
-            if (result.error) {
-                throw new Error(result.error.message || 'Error en la búsqueda');
+        const queryEmbedding = await embedQuery({
+          query: searchQuery,
+          onProgress: (p: any) => {
+            if (p?.status === 'progress' && p?.file) {
+              const percent = Math.round((p.loaded / p.total) * 100);
+              setProgressInfo(`Descargando modelo: ${percent}%`);
+              setSearchProgress({
+                label: `Descargando modelo: ${percent}%`,
+                percent,
+              });
             }
+          },
+        });
 
-            const mappedResults = result.data.map((r) => ({
-                ...r,
-                createdAt: new Date(r.createdAt),
-            }));
+        // 2) Realizar búsqueda semántica con filtros
+        setPhase('searching');
+        setProgressInfo('Buscando documentos similares...');
+        setSearchingPhase();
 
-            setResults(mappedResults);
-            setPhase('done');
-
-            // Update global store with results
-            finishSearch(mappedResults);
-        } catch (err) {
-            console.error('Search error:', err);
-            const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
-            setError(errorMessage);
-            setPhase('error');
-            setSearchError(errorMessage);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (query) {
-            performSearch(query);
-        }
-
-        // Cleanup on unmount
-        return () => {
-            resetSearch();
+        // Preparar filtros para la API
+        const apiFilters = {
+          tagSlugs:
+            searchFilters.tagSlugs.length > 0
+              ? searchFilters.tagSlugs
+              : undefined,
+          dateFrom: searchFilters.dateFrom || undefined,
+          dateTo: searchFilters.dateTo || undefined,
+          minSimilarity:
+            searchFilters.minSimilarity > 0
+              ? searchFilters.minSimilarity
+              : undefined,
         };
-    }, [query, performSearch]);
 
-    const isLoading = phase === 'loading-model' || phase === 'generating-embedding' || phase === 'searching';
+        const result = await actions.documents.semanticSearch({
+          queryEmbedding,
+          limit: 15,
+          filters: apiFilters,
+        });
 
-    // Error state
-    if (phase === 'error') {
-        return (
-            <div className={cn('flex flex-col items-center justify-center py-16 text-center', className)}>
-                <div className="size-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
-                    <AlertCircle size={32} className="text-destructive" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Error en la búsqueda</h3>
-                <p className="text-muted-foreground mb-6 max-w-sm">{error}</p>
-                <Button onClick={() => performSearch(query)}>Reintentar</Button>
-            </div>
-        );
+        if (result.error) {
+          throw new Error(result.error.message || 'Error en la búsqueda');
+        }
+
+        const mappedResults = result.data.map((r) => ({
+          ...r,
+          createdAt: new Date(r.createdAt),
+        }));
+
+        setResults(mappedResults);
+        setPhase('done');
+
+        // Update global store with results
+        finishSearch(mappedResults);
+      } catch (err) {
+        console.error('Search error:', err);
+        const errorMessage =
+          err instanceof Error ? err.message : 'Error desconocido';
+        setError(errorMessage);
+        setPhase('error');
+        setSearchError(errorMessage);
+      }
+    },
+    [],
+  );
+
+  // Buscar cuando cambia la query
+  useEffect(() => {
+    if (query) {
+      performSearch(query, filters);
     }
 
-    // Loading state with skeletons
-    if (isLoading) {
-        return (
-            <div className={className}>
-                {/* Status indicator */}
-                <div className="flex items-center gap-3 mb-6 px-4 py-3 rounded-lg bg-muted/50 border border-border/50">
-                    <div className="relative">
-                        <Sparkles size={18} className="text-primary animate-pulse" />
-                        <div className="absolute inset-0 animate-ping">
-                            <Sparkles size={18} className="text-primary/30" />
-                        </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground">
-                            {phase === 'loading-model' && 'Preparando IA...'}
-                            {phase === 'generating-embedding' && 'Analizando búsqueda...'}
-                            {phase === 'searching' && 'Buscando...'}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">{progressInfo}</p>
-                    </div>
-                </div>
+    // Cleanup on unmount
+    return () => {
+      resetSearch();
+    };
+  }, [query, performSearch]);
 
-                {/* Skeletons */}
-                <div className="divide-y divide-border/50">
-                    {[...Array(5)].map((_, i) => (
-                        <SearchResultSkeleton key={i} />
-                    ))}
-                </div>
-            </div>
-        );
-    }
+  // Buscar de nuevo cuando cambian los filtros (solo si ya hay query)
+  const handleFiltersChange = useCallback(
+    (newFilters: SearchFiltersState) => {
+      setFilters(newFilters);
+      if (query && phase === 'done') {
+        performSearch(query, newFilters);
+      }
+    },
+    [query, phase, performSearch],
+  );
 
-    // No query
-    if (!query.trim()) {
-        return (
-            <div className={cn('flex flex-col items-center justify-center py-16 text-center', className)}>
-                <div className="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                    <Search size={32} className="text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Busca en el blog</h3>
-                <p className="text-muted-foreground max-w-sm">
-                    Escribe una consulta para encontrar posts relacionados usando IA.
-                </p>
-            </div>
-        );
-    }
+  const isLoading =
+    phase === 'loading-model' ||
+    phase === 'generating-embedding' ||
+    phase === 'searching';
 
-    // No results
-    if (results.length === 0 && phase === 'done') {
-        return (
-            <div className={cn('flex flex-col items-center justify-center py-16 text-center', className)}>
-                <div className="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                    <FileText size={32} className="text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Sin resultados</h3>
-                <p className="text-muted-foreground max-w-sm">
-                    No se encontraron posts similares a "{query}".
-                    <br />
-                    Intenta con otras palabras o frases.
-                </p>
-            </div>
-        );
-    }
-
-    // Results list
+  // Error state
+  if (phase === 'error') {
     return (
-        <div className={className}>
-            {/* Results info */}
-            <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground">
-                <Sparkles size={14} className="text-primary" />
-                <span>
-                    {results.length} resultado{results.length !== 1 ? 's' : ''} para "{query}"
-                </span>
-            </div>
-
-            {/* Results */}
-            <div className="divide-y divide-border/50">
-                {results.map((result) => (
-                    <div key={result.id} className="relative">
-                        {/* Similarity badge */}
-                        <div className="absolute right-0 top-5 z-10">
-                            <span
-                                className={cn(
-                                    'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
-                                    result.similarity >= 0.7
-                                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                        : result.similarity >= 0.5
-                                            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                            : 'bg-muted text-muted-foreground'
-                                )}
-                            >
-                                {Math.round(result.similarity * 100)}%
-                            </span>
-                        </div>
-                        <PostItem
-                            id={result.id}
-                            title={result.title}
-                            slug={result.slug}
-                            excerpt={result.excerpt}
-                            createdAt={result.createdAt}
-                            className="pr-16"
-                        />
-                    </div>
-                ))}
-            </div>
+      <div
+        className={cn(
+          'flex flex-col items-center justify-center py-16 text-center',
+          className,
+        )}
+      >
+        <div className='size-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4'>
+          <AlertCircle size={32} className='text-destructive' />
         </div>
+        <h3 className='text-lg font-semibold mb-2'>Error en la búsqueda</h3>
+        <p className='text-muted-foreground mb-6 max-w-sm'>{error}</p>
+        <Button onClick={() => performSearch(query, filters)}>
+          Reintentar
+        </Button>
+      </div>
     );
+  }
+
+  // Loading state with skeletons
+  if (isLoading) {
+    return (
+      <div className={className}>
+        {/* Status indicator */}
+        <div className='flex items-center gap-3 mb-6 px-4 py-3 rounded-lg bg-muted/50 border border-border/50'>
+          <div className='relative'>
+            <Sparkles size={18} className='text-primary animate-pulse' />
+            <div className='absolute inset-0 animate-ping'>
+              <Sparkles size={18} className='text-primary/30' />
+            </div>
+          </div>
+          <div className='flex-1 min-w-0'>
+            <p className='text-sm font-medium text-foreground'>
+              {phase === 'loading-model' && 'Preparando IA...'}
+              {phase === 'generating-embedding' && 'Analizando búsqueda...'}
+              {phase === 'searching' && 'Buscando...'}
+            </p>
+            <p className='text-xs text-muted-foreground truncate'>
+              {progressInfo}
+            </p>
+          </div>
+        </div>
+
+        {/* Skeletons */}
+        <div className='divide-y divide-border/50'>
+          {[...Array(5)].map((_, i) => (
+            <SearchResultSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // No query
+  if (!query.trim()) {
+    return (
+      <div
+        className={cn(
+          'flex flex-col items-center justify-center py-16 text-center',
+          className,
+        )}
+      >
+        <div className='size-16 rounded-full bg-muted flex items-center justify-center mb-4'>
+          <Search size={32} className='text-muted-foreground' />
+        </div>
+        <h3 className='text-lg font-semibold mb-2'>Busca en el blog</h3>
+        <p className='text-muted-foreground max-w-sm'>
+          Escribe una consulta para encontrar posts relacionados usando IA.
+        </p>
+      </div>
+    );
+  }
+
+  // No results
+  if (results.length === 0 && phase === 'done') {
+    return (
+      <div className={className}>
+        {/* Filters - show even with no results */}
+        <SearchFilters
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+          className='mb-6'
+        />
+
+        <div className='flex flex-col items-center justify-center py-16 text-center'>
+          <div className='size-16 rounded-full bg-muted flex items-center justify-center mb-4'>
+            <FileText size={32} className='text-muted-foreground' />
+          </div>
+          <h3 className='text-lg font-semibold mb-2'>Sin resultados</h3>
+          <p className='text-muted-foreground max-w-sm'>
+            No se encontraron posts similares a "{query}".
+            <br />
+            Intenta con otras palabras o ajusta los filtros.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Results list
+  return (
+    <div className={className}>
+      {/* Filters */}
+      <SearchFilters
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+        className='mb-6'
+      />
+
+      {/* Results info */}
+      <div className='flex items-center gap-2 mb-4 text-sm text-muted-foreground'>
+        <Sparkles size={14} className='text-primary' />
+        <span>
+          {results.length} resultado{results.length !== 1 ? 's' : ''} para "
+          {query}"
+        </span>
+      </div>
+
+      {/* Results */}
+      <div className='divide-y divide-border/50'>
+        {results.map((result) => (
+          <div key={result.id} className='relative'>
+            {/* Similarity badge */}
+            <div className='absolute right-0 top-5 z-10'>
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
+                  result.similarity >= 0.7
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                    : result.similarity >= 0.5
+                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                    : 'bg-muted text-muted-foreground',
+                )}
+              >
+                {Math.round(result.similarity * 100)}%
+              </span>
+            </div>
+            <PostItem
+              id={result.id}
+              title={result.title}
+              slug={result.slug}
+              excerpt={result.excerpt}
+              createdAt={result.createdAt}
+              className='pr-16'
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export { SearchResults };
