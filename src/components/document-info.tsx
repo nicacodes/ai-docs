@@ -7,6 +7,9 @@ import { cn } from '@/lib/utils';
 
 // Componente para animar el porcentaje con interpolación suave
 const AnimatedPercentage = ({ percent }: { percent: number }) => {
+  // Clampear el valor de entrada a 0-100
+  const clampedPercent = Math.max(0, Math.min(100, percent));
+
   // Spring muy suave para transición fluida
   const spring = useSpring(0, {
     stiffness: 50,
@@ -16,20 +19,21 @@ const AnimatedPercentage = ({ percent }: { percent: number }) => {
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
-    spring.set(percent);
-  }, [percent, spring]);
+    spring.set(clampedPercent);
+  }, [clampedPercent, spring]);
 
   useEffect(() => {
     const unsubscribe = spring.on('change', (v) => {
-      setDisplayValue(Math.round(v));
+      // Clampear también el valor del spring por si oscila
+      setDisplayValue(Math.max(0, Math.min(100, Math.round(v))));
     });
     return unsubscribe;
   }, [spring]);
 
   return (
-    <span className="inline-flex items-center tabular-nums font-mono min-w-[3ch] justify-end">
+    <span className='inline-flex items-center tabular-nums font-mono min-w-[3ch] justify-end'>
       <span>{displayValue}</span>
-      <span className="ml-0.5">%</span>
+      <span className='ml-0.5'>%</span>
     </span>
   );
 };
@@ -56,7 +60,9 @@ export const DocumentInfo = () => {
     // Estado de descarga del modelo
     if (modelStatus.phase === 'loading') {
       const progress = modelStatus.progress;
-      const percent = progress?.percent ?? 0;
+      // Clampear porcentaje a rango válido 0-100
+      const rawPercent = progress?.percent ?? 0;
+      const percent = Math.max(0, Math.min(100, rawPercent));
 
       return {
         type: 'downloading',
@@ -87,11 +93,11 @@ export const DocumentInfo = () => {
   const Icon = current.icon;
 
   return (
-    <div className="flex items-center justify-center pointer-events-none w-full h-9">
-      <AnimatePresence mode="wait" initial={false}>
+    <div className='flex items-center justify-center pointer-events-none w-full h-9'>
+      <AnimatePresence mode='wait' initial={false}>
         {current.type === 'downloading' ? (
           <motion.div
-            key="downloading-pill"
+            key='downloading-pill'
             initial={{ opacity: 0, scale: 0.95, y: 5 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -5 }}
@@ -100,7 +106,7 @@ export const DocumentInfo = () => {
               'flex items-center gap-2 px-4 py-1 rounded-full',
               current.bg,
               current.border,
-              'border'
+              'border',
             )}
           >
             {Icon && (
@@ -118,18 +124,20 @@ export const DocumentInfo = () => {
             <span
               className={cn(
                 'text-xs font-semibold uppercase tracking-wide',
-                current.color
+                current.color,
               )}
             >
               {current.text}
             </span>
-            <span className={cn('text-xs font-bold tracking-wide', current.color)}>
+            <span
+              className={cn('text-xs font-bold tracking-wide', current.color)}
+            >
               <AnimatedPercentage percent={current.percent ?? 0} />
             </span>
           </motion.div>
         ) : current.type === 'status' ? (
           <motion.div
-            key="status-pill"
+            key='status-pill'
             initial={{ opacity: 0, scale: 0.95, y: 5 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -5 }}
@@ -137,13 +145,13 @@ export const DocumentInfo = () => {
             className={cn(
               'flex items-center gap-2 px-4 py-1',
               current.bg,
-              current.border
+              current.border,
             )}
           >
             <span
               className={cn(
                 'text-xs font-semibold uppercase tracking-wide',
-                current.color
+                current.color,
               )}
             >
               {current.text}
@@ -152,12 +160,12 @@ export const DocumentInfo = () => {
           </motion.div>
         ) : (
           <motion.div
-            key="doc-title"
+            key='doc-title'
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -5 }}
             transition={{ duration: 0.3 }}
-            className="text-sm font-semibold text-foreground/90 tracking-tight text-center truncate max-w-75 px-2"
+            className='text-sm font-semibold text-foreground/90 tracking-tight text-center truncate max-w-75 px-2'
           >
             <span title={title}>{title}</span>
           </motion.div>

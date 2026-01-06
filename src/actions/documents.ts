@@ -60,6 +60,7 @@ const listInputSchema = z.object({
   limit: z.number().int().min(1).max(100).default(20),
   offset: z.number().int().min(0).default(0),
   search: z.string().optional(),
+  tagSlug: z.string().optional(),
 });
 
 const getBySlugSchema = z.object({
@@ -191,11 +192,12 @@ export const documentsActions = {
 
   /**
    * Lista documentos con paginación y búsqueda opcional.
+   * Opcionalmente filtra por etiqueta (tagSlug).
    */
   list: defineAction({
     input: listInputSchema,
-    handler: async ({ limit, offset, search }) => {
-      const docs = await listDocuments({ limit, offset, search });
+    handler: async ({ limit, offset, search, tagSlug }) => {
+      const docs = await listDocuments({ limit, offset, search, tagSlug });
       return docs.map(toDocumentWithExcerpt);
     },
   }),

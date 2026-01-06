@@ -134,7 +134,7 @@ function PostHeader({ title, rawMarkdown, slug, className }: PostHeaderProps) {
               size='sm'
               className='text-muted-foreground hover:text-foreground gap-1.5'
             >
-              <a href={`/edit/${slug}`}>
+              <a href={`/editor/${slug}`}>
                 <Pencil size={14} />
                 <span className='hidden sm:inline'>Editar</span>
               </a>

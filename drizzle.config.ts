@@ -7,6 +7,7 @@ export default {
     './src/db/auth-schema.ts',
     './src/db/proposals-schema.ts',
     './src/db/notifications-schema.ts',
+    './src/db/tags-schema.ts',
   ],
   out: './drizzle',
   dialect: 'postgresql',

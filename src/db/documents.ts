@@ -1,6 +1,7 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, inArray } from 'drizzle-orm';
 import { getDb } from './client';
 import { documents, user } from './schema';
+import { tags, documentTags } from './tags-schema';
 import { makeSlug } from './utils';
 
 // ============================================================================
@@ -43,6 +44,7 @@ export interface ListDocumentsInput {
   limit?: number;
   offset?: number;
   search?: string;
+  tagSlug?: string;
 }
 
 // ============================================================================
@@ -130,13 +132,51 @@ export async function getDocumentById(id: string): Promise<DocumentRow | null> {
 
 /**
  * Lista documentos con paginación y búsqueda opcional por título.
+ * Opcionalmente filtra por etiqueta (tagSlug).
  */
 export async function listDocuments(
   input: ListDocumentsInput = {},
 ): Promise<DocumentRow[]> {
-  const { limit = 20, offset = 0, search } = input;
+  const { limit = 20, offset = 0, search, tagSlug } = input;
   const db = getDb();
 
+  // Si hay filtro por tag, usamos una subconsulta
+  if (tagSlug?.trim()) {
+    // Obtener IDs de documentos con este tag
+    const taggedDocIds = db
+      .select({ documentId: documentTags.documentId })
+      .from(documentTags)
+      .innerJoin(tags, eq(documentTags.tagId, tags.id))
+      .where(eq(tags.slug, tagSlug.trim()));
+
+    let query = db
+      .select({
+        id: documents.id,
+        title: documents.title,
+        slug: documents.slug,
+        rawMarkdown: documents.rawMarkdown,
+        metadata: documents.metadata,
+        authorId: documents.authorId,
+        createdAt: documents.createdAt,
+        updatedAt: documents.updatedAt,
+      })
+      .from(documents)
+      .where(inArray(documents.id, taggedDocIds))
+      .orderBy(sql`${documents.createdAt} DESC`)
+      .limit(limit)
+      .offset(offset);
+
+    if (search?.trim()) {
+      const searchTerm = `%${search.trim().toLowerCase()}%`;
+      query = query.where(
+        sql`${documents.id} IN (${taggedDocIds}) AND LOWER(${documents.title}) LIKE ${searchTerm}`,
+      ) as typeof query;
+    }
+
+    return (await query) as DocumentRow[];
+  }
+
+  // Query normal sin filtro de tag
   let query = db
     .select({
       id: documents.id,

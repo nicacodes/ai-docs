@@ -26,6 +26,29 @@ export const editorInstance = atom<Crepe | undefined>(undefined);
 export const readOnlyState = atom<boolean>(false);
 export const $currentTitle = atom<string>('Sin título');
 
+// Tags pendientes para nuevos documentos (antes de guardar)
+export const $pendingTags = atom<string[]>([]);
+
+export function setPendingTags(tags: string[]) {
+  $pendingTags.set(tags);
+}
+
+export function addPendingTag(tag: string) {
+  const current = $pendingTags.get();
+  if (!current.includes(tag)) {
+    $pendingTags.set([...current, tag]);
+  }
+}
+
+export function removePendingTag(tag: string) {
+  const current = $pendingTags.get();
+  $pendingTags.set(current.filter((t) => t !== tag));
+}
+
+export function clearPendingTags() {
+  $pendingTags.set([]);
+}
+
 export function setCurrentTitle(title: string) {
   $currentTitle.set(title);
 }

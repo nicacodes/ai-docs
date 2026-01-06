@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useMemo } from "react";
-import { useStore } from "@nanostores/react";
-import { replaceAll } from "@milkdown/kit/utils";
-import { actions } from "astro:actions";
-import { inferTitle, loadCurrentDoc, clearDraftContent } from "@/lib/utils";
-import { exportToPdf } from "@/lib/pdf-export";
-import { preparePassageText } from "@/lib/embedding-utils";
-import { STORAGE_KEY } from "@/constants";
+import { useCallback, useEffect, useMemo } from 'react';
+import { useStore } from '@nanostores/react';
+import { replaceAll } from '@milkdown/kit/utils';
+import { actions } from 'astro:actions';
+import { inferTitle, loadCurrentDoc, clearDraftContent } from '@/lib/utils';
+import { exportToPdf } from '@/lib/pdf-export';
+import { preparePassageText } from '@/lib/embedding-utils';
+import { STORAGE_KEY } from '@/constants';
 import {
   $embeddingProgress,
   $modelStatus,
   $saveStatus,
+  $pendingTags,
   editorInstance,
+  clearPendingTags,
   resetEmbeddingProgress,
   resetSaveStatus,
   setEmbeddingProgress,
@@ -21,56 +23,60 @@ import {
   setSaveError,
   setSaveSaving,
   setSaveSuccess,
+  setCurrentTitle,
   type EditorProgress,
   type ModelStatus,
   type SaveStatus,
-} from "@/store/editor-store";
+} from '@/store/editor-store';
+import { clearDraftState } from '@/store/draft-store';
 import {
   embedPost,
   ensureSwReady,
   ensureModelInitialized,
-} from "@/scripts/ai-embeddings";
+} from '@/scripts/ai-embeddings';
 
 const MODEL = {
-  modelId: "Xenova/multilingual-e5-small",
-  device: "wasm" as const,
+  modelId: 'Xenova/multilingual-e5-small',
+  device: 'wasm' as const,
 };
 
 // Solo tracking local de estado de guardado
 let isSaving = false;
 
 function normalizeProgressPayload(payload: unknown): EditorProgress {
-  if (!payload || typeof payload !== "object") return null;
+  if (!payload || typeof payload !== 'object') return null;
 
   const anyPayload = payload as any;
-  const phase = anyPayload.phase || "";
+  const phase = anyPayload.phase || '';
   const message = anyPayload.label || anyPayload.message;
   const fromCache = anyPayload.fromCache === true;
-  const pct = Number.isFinite(anyPayload.percent)
+  // Clampear porcentaje a rango válido 0-100
+  const rawPct = Number.isFinite(anyPayload.percent)
     ? Math.round(anyPayload.percent)
     : null;
+  const pct = rawPct !== null ? Math.max(0, Math.min(100, rawPct)) : null;
 
   // Si el modelo ya está en caché/memoria, mostrar mensaje apropiado
-  if (phase === "cached" || phase === "ready") {
+  if (phase === 'cached' || phase === 'ready') {
     if (fromCache) {
       return {
-        label: "Generando vectores",
+        label: 'Generando vectores',
         percent: null,
       };
     }
     return {
-      label: "Modelo listo",
+      label: 'Modelo listo',
       percent: 100,
     };
   }
 
   if (
-    phase === "running" &&
-    typeof anyPayload.total === "number" &&
+    phase === 'running' &&
+    typeof anyPayload.total === 'number' &&
     anyPayload.total > 0
   ) {
     const position =
-      typeof anyPayload.index === "number"
+      typeof anyPayload.index === 'number'
         ? Math.min(anyPayload.index + 1, anyPayload.total)
         : anyPayload.total;
     const percent =
@@ -85,16 +91,16 @@ function normalizeProgressPayload(payload: unknown): EditorProgress {
   }
 
   // Solo mostrar "Descargando modelo" si realmente está descargando (no desde caché)
-  if (phase === "loading" && !fromCache) {
+  if (phase === 'loading' && !fromCache) {
     return {
-      label: message || "Descargando modelo",
+      label: message || 'Descargando modelo',
       percent: pct,
     };
   }
 
   // Default para otros casos
   return {
-    label: message || "Preparando",
+    label: message || 'Preparando',
     percent: pct,
   };
 }
@@ -109,7 +115,7 @@ function clearCurrentDoc() {
  */
 export async function ensureModelReady() {
   try {
-    setModelLoading({ label: "Cargando modelo", percent: 0 });
+    setModelLoading({ label: 'Cargando modelo', percent: 0 });
     await ensureSwReady();
     await ensureModelInitialized(MODEL, (payload: unknown) => {
       const next = normalizeProgressPayload(payload);
@@ -117,14 +123,14 @@ export async function ensureModelReady() {
     });
     setModelReady();
   } catch (err) {
-    console.warn("No se pudo inicializar embeddings:", err);
-    setModelError("No se pudo cargar el modelo");
+    console.warn('No se pudo inicializar embeddings:', err);
+    setModelError('No se pudo cargar el modelo');
     throw err;
   }
 }
 
 function formatProgress(p: EditorProgress): string {
-  if (!p) return "";
+  if (!p) return '';
   if (p.percent == null) return p.label;
   const pct = Math.max(0, Math.min(100, Math.round(p.percent)));
   return `${p.label} ${pct}%`;
@@ -133,53 +139,64 @@ function formatProgress(p: EditorProgress): string {
 function deriveBusyLabel(
   modelStatus: ModelStatus,
   saveStatus: SaveStatus,
-  embeddingProgress: EditorProgress
+  embeddingProgress: EditorProgress,
 ) {
-  if (saveStatus.phase === "saving") return saveStatus.message || "Guardando…";
+  if (saveStatus.phase === 'saving') return saveStatus.message || 'Guardando…';
 
   if (embeddingProgress) {
     const formatted = formatProgress(embeddingProgress);
-    return formatted || "Generando embeddings…";
+    return formatted || 'Generando embeddings…';
   }
 
-  if (modelStatus.phase === "loading") {
+  if (modelStatus.phase === 'loading') {
     const formatted = formatProgress(modelStatus.progress);
-    return formatted || "Cargando modelo…";
+    return formatted || 'Cargando modelo…';
   }
 
-  return "";
+  return '';
 }
 
 async function setEditorMarkdown(md: string, options?: { replace?: boolean }) {
   const crepe = editorInstance.get();
   if (!crepe) return;
-  const value = md ?? "#";
+  const value = md ?? '#';
   if (options?.replace === false) return;
   crepe.editor.action(replaceAll(value));
 }
 
 async function resetEditorToNew() {
-  await setEditorMarkdown("# ");
-  setLastMarkdownSnapshot("# ");
+  // Limpiar editor
+  await setEditorMarkdown('# ');
+  setLastMarkdownSnapshot('# ');
+
+  // Limpiar estados
   resetEmbeddingProgress();
-  setSaveSuccess("Nuevo documento listo");
+  clearPendingTags();
+  setCurrentTitle('Sin título');
+
+  // Limpiar localStorage
   clearCurrentDoc();
-  clearDraftContent(); // Limpiar draft al crear nuevo documento
+  clearDraftContent();
+
+  // Limpiar estado del draft-store para actualizar el botón NewPost
+  clearDraftState();
+
+  setSaveSuccess('Nuevo documento listo');
   window.setTimeout(() => resetSaveStatus(), 1200);
 }
 
 async function importMarkdownFromFile() {
   const crepe = editorInstance.get();
   if (!crepe) {
-    setSaveError("Editor no listo.");
+    setSaveError('Editor no listo.');
     return;
   }
 
   const input = document.querySelector(
-    "#import-md-input"
+    '#import-md-input',
   ) as HTMLInputElement | null;
   if (!input) {
-    setSaveError("No se encontró el selector de importación.");
+    setSaveError('No se encontró el selector de importación.');
     return;
   }
 
@@ -191,15 +208,15 @@ async function importMarkdownFromFile() {
         const text = await file.text();
         crepe.editor.action(replaceAll(text));
       } catch (err) {
-        console.error("Error importando markdown:", err);
-        setSaveError("Error importando markdown.");
+        console.error('Error importando markdown:', err);
+        setSaveError('Error importando markdown.');
       } finally {
-        input.value = "";
+        input.value = '';
         resolve();
       }
     };
 
-    input.addEventListener("change", handler, { once: true });
+    input.addEventListener('change', handler, { once: true });
     input.click();
   });
 }
@@ -207,7 +224,7 @@ async function importMarkdownFromFile() {
 function downloadTextFile(filename: string, content: string, mime: string) {
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
+  const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
@@ -218,11 +235,11 @@ function downloadTextFile(filename: string, content: string, mime: string) {
 
 function sanitizeFilename(name: string) {
   return (
-    String(name || "documento")
-      .replace(/[\\/:*?"<>|]/g, "")
-      .replace(/\s+/g, " ")
+    String(name || 'documento')
+      .replace(/[\\/:*?"<>|]/g, '')
+      .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 80) || "documento"
+      .slice(0, 80) || 'documento'
   );
 }
 
@@ -233,20 +250,20 @@ async function exportMarkdownFile() {
   setLastMarkdownSnapshot(rawMarkdown);
   const title = inferTitle(rawMarkdown);
   const filename = `${sanitizeFilename(title)}.md`;
-  downloadTextFile(filename, rawMarkdown, "text/markdown;charset=utf-8");
+  downloadTextFile(filename, rawMarkdown, 'text/markdown;charset=utf-8');
 }
 
 async function saveDocumentWithEmbeddings() {
   const crepe = editorInstance.get();
   if (!crepe) {
-    setSaveError("Editor no listo.");
+    setSaveError('Editor no listo.');
     return;
   }
 
   if (isSaving) return;
   isSaving = true;
-  setSaveSaving("Guardando…");
-  setEmbeddingProgress({ label: "Generando embeddings", percent: 0 });
+  setSaveSaving('Guardando…');
+  setEmbeddingProgress({ label: 'Generando embeddings', percent: 0 });
 
   try {
     await ensureModelReady();
@@ -265,9 +282,9 @@ async function saveDocumentWithEmbeddings() {
 
     if (saveError || !saved) {
       console.error(saveError);
-      setSaveError("Error guardando documento.");
+      setSaveError('Error guardando documento.');
       setEmbeddingProgress({
-        label: "Error generando embedding",
+        label: 'Error generando embedding',
         percent: null,
       });
       return;
@@ -295,7 +312,7 @@ async function saveDocumentWithEmbeddings() {
           embedding,
           modelId: MODEL.modelId,
           device: MODEL.device,
-          pooling: "mean",
+          pooling: 'mean',
           normalize: true,
         },
       ],
@@ -303,8 +320,23 @@ async function saveDocumentWithEmbeddings() {
 
     if (embError) {
       console.error(embError);
-      setSaveError("Documento guardado; error guardando embedding.");
+      setSaveError('Documento guardado; error guardando embedding.');
       return;
+    }
+
+    // Guardar tags pendientes si hay alguno
+    const pendingTags = $pendingTags.get();
+    if (pendingTags.length > 0) {
+      try {
+        await actions.tags.setForDocument({
+          documentId: saved.id,
+          tags: pendingTags,
+        });
+        clearPendingTags();
+      } catch (tagError) {
+        console.warn('Error guardando tags:', tagError);
+        // No fallar el guardado completo por un error en tags
+      }
     }
 
     // Después de guardar exitosamente:
@@ -314,7 +346,7 @@ async function saveDocumentWithEmbeddings() {
     // debe ir a la página del post
     clearCurrentDoc();
     clearDraftContent();
-    setSaveSuccess("Guardado. Redirigiendo...");
+    setSaveSuccess('Guardado. Redirigiendo...');
     resetEmbeddingProgress();
 
     // Redirigir al post guardado después de un momento
@@ -323,9 +355,9 @@ async function saveDocumentWithEmbeddings() {
     }, 1200);
   } catch (err) {
     console.error(err);
-    setSaveError("Error inesperado al guardar.");
+    setSaveError('Error inesperado al guardar.');
     setEmbeddingProgress({
-      label: "Error generando embedding",
+      label: 'Error generando embedding',
       percent: null,
     });
   } finally {
@@ -359,15 +391,15 @@ export function useEditorActions() {
   }, []);
 
   const isBusy =
-    saveStatus.phase === "saving" ||
-    modelStatus.phase === "loading" ||
+    saveStatus.phase === 'saving' ||
+    modelStatus.phase === 'loading' ||
     Boolean(embeddingProgress);
 
   const canSave =
-    saveStatus.phase !== "saving" && modelStatus.phase !== "error";
+    saveStatus.phase !== 'saving' && modelStatus.phase !== 'error';
 
   const saveLabel = useMemo(() => {
-    if (!isBusy) return "Guardar";
+    if (!isBusy) return 'Guardar';
     return deriveBusyLabel(modelStatus, saveStatus, embeddingProgress);
   }, [embeddingProgress, isBusy, modelStatus, saveStatus]);
 
@@ -388,13 +420,13 @@ export function useSaveShortcut(onSave: () => void) {
     const handler = (e: KeyboardEvent) => {
       const isCmdOrCtrl = e.metaKey || e.ctrlKey;
       if (!isCmdOrCtrl) return;
-      if (e.key.toLowerCase() !== "s") return;
+      if (e.key.toLowerCase() !== 's') return;
       if (e.repeat) return;
       e.preventDefault();
       onSave();
     };
 
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
   }, [onSave]);
 }

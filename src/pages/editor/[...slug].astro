@@ -1,0 +1,266 @@
+---
+/**
+ * Editor Unificado
+ *
+ * Maneja tanto la creación de nuevos documentos como la edición de existentes:
+ * - Sin slug: Crear nuevo documento
+ * - Con slug + autor: Editar directamente
+ * - Con slug + no autor: Crear propuesta de cambios
+ */
+import '@milkdown/crepe/theme/common/style.css';
+import '@milkdown/crepe/theme/frame.css';
+import Layout from '@/layouts/layout.astro';
+import { UnifiedEditorHeader } from '@/components/UnifiedEditorHeader';
+import { getDocumentBySlugWithAuthor } from '@/db/documents';
+import { getDocumentTags } from '@/db/tags';
+import { auth } from '@/lib/auth';
+
+export const prerender = false;
+
+const { slug } = Astro.params;
+
+// Verificar autenticación
+const session = await auth.api.getSession({
+  headers: Astro.request.headers,
+});
+
+// Variables para el modo de edición
+let document = null;
+let documentTags: string[] = [];
+let isAuthor = true;
+let mode: 'new' | 'edit' | 'propose' = 'new';
+
+if (slug) {
+  // Modo edición - cargar documento existente
+  document = await getDocumentBySlugWithAuthor(slug);
+
+  if (!document) {
+    return Astro.redirect('/');
+  }
+
+  // Requiere autenticación para editar
+  if (!session?.user) {
+    return Astro.redirect(`/login?redirect=/editor/${slug}`);
+  }
+
+  // Cargar tags del documento
+  const tags = await getDocumentTags(document.id);
+  documentTags = tags.map((t) => t.name);
+
+  // Determinar si es autor o no
+  isAuthor = document.authorId === session.user.id;
+  mode = isAuthor ? 'edit' : 'propose';
+}
+
+// Preparar datos para el cliente
+const editorData = {
+  mode,
+  documentId: document?.id || null,
+  slug: document?.slug || null,
+  title: document?.title || '',
+  rawMarkdown: document?.rawMarkdown || '',
+  isAuthor,
+  authorName: document?.authorName || null,
+  userId: session?.user?.id || null,
+  userName: session?.user?.name || null,
+  initialTags: documentTags,
+};
+
+const pageTitle =
+  mode === 'new'
+    ? 'Nuevo documento'
+    : mode === 'edit'
+      ? `Editando: ${document?.title}`
+      : `Proponer cambios: ${document?.title}`;
+---
+
+<Layout title={pageTitle}>
+  <div class='w-full flex justify-center relative'>
+    <div class='w-full max-w-7xl'>
+      <UnifiedEditorHeader
+        client:load
+        mode={editorData.mode}
+        documentId={editorData.documentId}
+        slug={editorData.slug}
+        initialTitle={editorData.title}
+        isAuthor={editorData.isAuthor}
+        authorName={editorData.authorName}
+        initialTags={editorData.initialTags}
+      />
+      <div id='app' class='w-full min-h-[70vh]'></div>
+      <input
+        id='import-md-input'
+        type='file'
+        accept='.md,text/markdown,text/plain'
+        class='hidden'
+      />
+    </div>
+  </div>
+</Layout>
+
+<script
+  define:vars={{
+    rawMarkdown: editorData.rawMarkdown,
+    mode: editorData.mode,
+    isAuthor: editorData.isAuthor,
+  }}
+>
+  window.__DOCUMENT_CONTENT__ = rawMarkdown;
+  window.__EDITOR_MODE__ = mode;
+  window.__IS_AUTHOR__ = isAuthor;
+</script>
+
+<script>
+  import { Crepe } from '@milkdown/crepe';
+  import { editorViewCtx, prosePluginsCtx } from '@milkdown/core';
+  import { keymap } from '@milkdown/prose/keymap';
+  import { editorInstance, setCurrentTitle } from '@/store/editor-store';
+  import { disposeEmbeddingsClient } from '@/scripts/ai-embeddings';
+  import {
+    loadDraftContent,
+    saveDraftContent,
+    clearDraftContent,
+  } from '@/lib/utils';
+
+  let crepeInstance: Crepe | null = null;
+  let updateDebounceId: number | null = null;
+
+  function debounce<T extends (...args: any[]) => void>(fn: T, ms: number): T {
+    let timeoutId: number | null = null;
+    return ((...args: any[]) => {
+      if (timeoutId) window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => fn(...args), ms);
+    }) as T;
+  }
+
+  async function initEditor() {
+    if (crepeInstance) {
+      crepeInstance.destroy();
+      crepeInstance = null;
+    }
+
+    const mode = (window as any).__EDITOR_MODE__ || 'new';
+    const documentContent = (window as any).__DOCUMENT_CONTENT__ || '';
+
+    // Para nuevo documento, intentar cargar draft
+    let initialContent = documentContent;
+    if (mode === 'new') {
+      const savedDraft = loadDraftContent();
+      initialContent = savedDraft || '# ';
+    }
+
+    crepeInstance = new Crepe({
+      root: '#app',
+      defaultValue: initialContent,
+      featureConfigs: {
+        placeholder: {
+          text: mode === 'new' ? 'Nueva página' : 'Escribe aquí...',
+          mode: 'block',
+        },
+      },
+    });
+
+    // Para nuevo documento, proteger el H1 inicial
+    if (mode === 'new') {
+      crepeInstance.editor.config((ctx) => {
+        ctx.update(prosePluginsCtx, (prev) => [
+          ...prev,
+          keymap({
+            Backspace: (state) => {
+              const { selection } = state;
+              const { $from, empty } = selection;
+
+              if (!empty) return false;
+              if ($from.index(0) !== 0) return false;
+              if ($from.parentOffset !== 0) return false;
+
+              const node = $from.parent;
+              if (node.type.name === 'heading' && node.attrs.level === 1) {
+                return true;
+              }
+              return false;
+            },
+          }),
+        ]);
+      });
+    }
+
+    // Handler para actualizar título
+    const handleUpdate = debounce((ctx: any) => {
+      const view = ctx.get(editorViewCtx);
+      const { state } = view;
+      const firstChild = state.doc.firstChild;
+
+      if (!firstChild) return;
+
+      // Para nuevo, forzar H1
+      if (mode === 'new') {
+        const esTituloH1 =
+          firstChild.type.name === 'heading' && firstChild.attrs.level === 1;
+
+        if (!esTituloH1) {
+          const tr = state.tr.setNodeMarkup(0, state.schema.nodes.heading, {
+            level: 1,
+          });
+          view.dispatch(tr);
+          return;
+        }
+      }
+
+      // Actualizar título
+      if (firstChild.type.name === 'heading' && firstChild.attrs.level === 1) {
+        const textoTitulo = firstChild.textContent.trim() || 'Sin título';
+        setCurrentTitle(textoTitulo);
+      }
+    }, 300);
+
+    // Handler para guardar draft (solo en modo new)
+    const saveDraft = debounce(async () => {
+      if (!crepeInstance || mode !== 'new') return;
+      try {
+        const markdown = await crepeInstance.getMarkdown();
+        saveDraftContent(markdown);
+      } catch (e) {
+        console.warn('Error guardando draft:', e);
+      }
+    }, 1000);
+
+    crepeInstance.on((api) => {
+      api.updated((ctx) => {
+        handleUpdate(ctx);
+        if (mode === 'new') saveDraft();
+      });
+    });
+
+    await crepeInstance.create();
+    editorInstance.set(crepeInstance);
+
+    // Establecer título inicial
+    const content = initialContent || '';
+    const lines = content.split(/\r?\n/);
+    for (const line of lines) {
+      const m = /^\s*#\s+(.+)\s*$/.exec(line);
+      if (m?.[1]) {
+        setCurrentTitle(m[1].trim());
+        break;
+      }
+    }
+  }
+
+  initEditor();
+
+  document.addEventListener('astro:before-swap', () => {
+    if (updateDebounceId) {
+      window.clearTimeout(updateDebounceId);
+      updateDebounceId = null;
+    }
+
+    if (crepeInstance) {
+      crepeInstance.destroy();
+      crepeInstance = null;
+      editorInstance.set(undefined);
+    }
+
+    disposeEmbeddingsClient();
+  });
+</script>

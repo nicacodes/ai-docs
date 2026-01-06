@@ -3,7 +3,9 @@ import '@milkdown/crepe/theme/common/style.css';
 import '@milkdown/crepe/theme/frame.css';
 import Layout from '@/layouts/layout.astro';
 import { PostHeader } from '@/components/PostHeader';
+import { TagList } from '@/components/TagBadge';
 import { getDocumentBySlugWithAuthor } from '@/db/documents';
+import { getDocumentTags } from '@/db/tags';
 
 export const prerender = false;
 
@@ -19,6 +21,9 @@ const post = await getDocumentBySlugWithAuthor(slug);
 if (!post) {
   return Astro.redirect('/');
 }
+
+// Fetch tags for the document
+const postTags = await getDocumentTags(post.id);
 ---
 
 <Layout title={post.title}>
@@ -88,6 +93,15 @@ if (!post) {
           </time>
         </div>
       </div>
+
+      {/* Tags del documento */}
+      {
+        postTags.length > 0 && (
+          <div class='mb-4'>
+            <TagList tags={postTags} size='md' clickable={true} />
+          </div>
+        )
+      }
 
       <!-- Editor en modo solo lectura -->
       <div id='app' class='w-full min-h-[70vh] milkdown-readonly'></div>

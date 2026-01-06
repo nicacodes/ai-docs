@@ -296,7 +296,7 @@ export default function ProfilePage({ profileData }: ProfilePageProps) {
             <div className='flex items-center justify-between'>
               <h2 className='text-lg font-semibold'>Mis Publicaciones</h2>
               <Button asChild size='sm'>
-                <a href='/new'>Nueva publicación</a>
+                <a href='/editor'>Nueva publicación</a>
               </Button>
             </div>
 
@@ -305,7 +305,7 @@ export default function ProfilePage({ profileData }: ProfilePageProps) {
                 <FileText className='w-12 h-12 mx-auto mb-4 opacity-50' />
                 <p>No has creado ninguna publicación</p>
                 <Button asChild variant='outline' className='mt-4'>
-                  <a href='/new'>Crear tu primera publicación</a>
+                  <a href='/editor'>Crear tu primera publicación</a>
                 </Button>
               </div>
             ) : (
@@ -336,7 +336,7 @@ export default function ProfilePage({ profileData }: ProfilePageProps) {
                         </a>
                       </Button>
                       <Button asChild variant='ghost' size='sm'>
-                        <a href={`/edit/${post.slug}`}>Editar</a>
+                        <a href={`/editor/${post.slug}`}>Editar</a>
                       </Button>
                     </div>
                   </div>

@@ -2,17 +2,18 @@
  * ProposalEditor - Header para el editor de propuestas
  *
  * Muestra controles diferentes según si el usuario es el autor o no:
- * - Autor: Botón "Guardar" (edición directa)
+ * - Autor: Botón "Guardar" (edición directa) + Selector de tags
  * - No autor: Botón "Proponer Cambios" + mensaje informativo
  */
 
 import { useState, useCallback, useEffect } from 'react';
 import { useStore } from '@nanostores/react';
-import { Send, Save, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Send, Save, AlertCircle, ArrowLeft, Tags } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { actions } from 'astro:actions';
 import { Button } from '@/components/ui/button';
 import { ModeToggle } from '@/components/ui/mode-toggle';
+import TagSelector from '@/components/TagSelector';
 import { cn } from '@/lib/utils';
 import { editorInstance, $currentTitle } from '@/store/editor-store';
 
@@ -37,6 +38,7 @@ export function ProposalEditor({
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [showMessageInput, setShowMessageInput] = useState(false);
+  const [showTagSelector, setShowTagSelector] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
   const currentTitle = useStore($currentTitle);
@@ -238,16 +240,27 @@ export function ProposalEditor({
               <ModeToggle />
 
               {isAuthor ? (
-                // Autor: Guardar directamente
-                <Button
-                  onClick={handleDirectSave}
-                  disabled={isSaving}
-                  size='sm'
-                  className='gap-2'
-                >
-                  <Save size={16} />
-                  {isSaving ? 'Guardando...' : 'Guardar'}
-                </Button>
+                // Autor: Tags + Guardar directamente
+                <>
+                  <Button
+                    onClick={() => setShowTagSelector(!showTagSelector)}
+                    variant={showTagSelector ? 'secondary' : 'ghost'}
+                    size='icon-sm'
+                    className='text-muted-foreground hover:text-foreground'
+                    title='Gestionar etiquetas'
+                  >
+                    <Tags size={18} />
+                  </Button>
+                  <Button
+                    onClick={handleDirectSave}
+                    disabled={isSaving}
+                    size='sm'
+                    className='gap-2'
+                  >
+                    <Save size={16} />
+                    {isSaving ? 'Guardando...' : 'Guardar'}
+                  </Button>
+                </>
               ) : (
                 // No autor: Proponer cambios
                 <>
@@ -293,6 +306,31 @@ export function ProposalEditor({
           </div>
         </div>
       </div>
+
+      {/* Tag Selector (solo para autores) */}
+      <AnimatePresence>
+        {isAuthor && showTagSelector && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className='overflow-hidden'
+          >
+            <div className='max-w-5xl mx-auto px-3 py-3'>
+              <div className='bg-muted/50 rounded-lg p-3 border border-border/40'>
+                <div className='flex items-center gap-2 mb-2'>
+                  <Tags size={14} className='text-muted-foreground' />
+                  <span className='text-xs font-medium text-muted-foreground'>
+                    Etiquetas del documento
+                  </span>
+                </div>
+                <TagSelector documentId={documentId} className='w-full' />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
