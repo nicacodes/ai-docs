@@ -11,6 +11,10 @@ import {
   getStoredEmbedding,
   putStoredEmbedding,
 } from './embeddings-store';
+import {
+  generateEmbeddingServer,
+  checkServerEmbeddingsReady,
+} from './embeddings-api-client';
 
 export type EmbeddingModelConfig = {
   modelId: string;
@@ -28,6 +32,47 @@ const DEFAULT_MODEL: EmbeddingModelConfig = {
   modelId: 'Xenova/multilingual-e5-small',
   device: 'wasm',
 };
+
+// ============================================================================
+// DETECCIÓN DE MODO: Servidor vs Worker
+// ============================================================================
+
+// null = no detectado, true = usar servidor, false = usar worker
+let useServerMode: boolean | null = null;
+let serverCheckPromise: Promise<boolean> | null = null;
+
+/**
+ * Detecta si debemos usar el servidor o el worker para embeddings.
+ * El servidor es preferido si está disponible (más rápido).
+ */
+async function detectEmbeddingsMode(): Promise<boolean> {
+  if (useServerMode !== null) return useServerMode;
+
+  if (serverCheckPromise) return serverCheckPromise;
+
+  serverCheckPromise = (async () => {
+    try {
+      // Intentar usar el servidor
+      const serverAvailable = await checkServerEmbeddingsReady();
+      useServerMode = serverAvailable;
+      console.log(
+        `[Embeddings] Modo: ${
+          serverAvailable ? 'SERVIDOR (rápido)' : 'WORKER (fallback)'
+        }`,
+      );
+      return serverAvailable;
+    } catch {
+      useServerMode = false;
+      return false;
+    }
+  })();
+
+  return serverCheckPromise;
+}
+
+// ============================================================================
+// WORKER MODE (fallback)
+// ============================================================================
 
 // Estado centralizado - sin duplicación
 let rpc: ReturnType<typeof createWorkerRpcClient> | null = null;
@@ -69,17 +114,29 @@ export async function initEmbeddingModel(
 
 /**
  * Pre-carga el modelo en background para que esté listo cuando se necesite.
- * Llamar esto al cargar la página mejora la experiencia del usuario.
+ * Detecta automáticamente si usar servidor o worker.
  */
 export function preloadModel(model?: Partial<EmbeddingModelConfig>) {
-  const cfg: EmbeddingModelConfig = {
-    modelId: model?.modelId ?? DEFAULT_MODEL.modelId,
-    device: model?.device ?? DEFAULT_MODEL.device,
-  };
-
-  // Iniciar en background sin esperar
-  ensureModelInitialized(cfg).catch((err) => {
-    console.warn('[Embeddings] Error pre-cargando modelo:', err);
+  // Detectar modo y pre-calentar
+  detectEmbeddingsMode().then(async (useServer) => {
+    if (useServer) {
+      // Pre-calentar el servidor con una llamada dummy
+      try {
+        await generateEmbeddingServer('warmup');
+        console.log('[Embeddings] Servidor pre-calentado');
+      } catch (err) {
+        console.warn('[Embeddings] Error pre-calentando servidor:', err);
+      }
+    } else {
+      // Fallback: inicializar worker
+      const cfg: EmbeddingModelConfig = {
+        modelId: model?.modelId ?? DEFAULT_MODEL.modelId,
+        device: model?.device ?? DEFAULT_MODEL.device,
+      };
+      ensureModelInitialized(cfg).catch((err) => {
+        console.warn('[Embeddings] Error pre-cargando worker:', err);
+      });
+    }
   });
 }
 
@@ -131,30 +188,42 @@ export async function embedPost(args: EmbedPostArgs): Promise<number[]> {
   });
 
   if (cached?.embedding?.length) {
+    args.onProgress?.({ phase: 'cached', label: 'Desde cache', percent: 100 });
     return cached.embedding;
   }
 
-  // 2) Solo inicializar modelo si no hay cache
-  await ensureModelInitialized(cfg, args.onProgress);
+  // 2) Detectar modo: servidor (rápido) vs worker (fallback)
+  const useServer = await detectEmbeddingsMode();
 
-  // 3) Generar embedding con el worker
-  const res = (await rpc!.call(
-    'embed',
-    {
-      modelId: cfg.modelId,
-      device: cfg.device,
-      texts: [args.text],
-    },
-    {
-      timeoutMs: 5 * 60_000, // 5 min max (reducido de 10)
-      onProgress: args.onProgress,
-    },
-  )) as any;
+  let embedding: number[];
 
-  const embedding = (res?.embeddings?.[0] ?? null) as number[] | null;
-  if (!embedding) throw new Error('No se pudo generar embedding.');
+  if (useServer) {
+    // MODO SERVIDOR: Más rápido, el modelo corre en Docker
+    args.onProgress?.({ phase: 'running', label: 'Generando...', percent: 50 });
+    embedding = await generateEmbeddingServer(args.text);
+    args.onProgress?.({ phase: 'ready', label: 'Listo', percent: 100 });
+  } else {
+    // MODO WORKER: Fallback, el modelo corre en el navegador
+    await ensureModelInitialized(cfg, args.onProgress);
 
-  // 4) Persistir en cache local
+    const res = (await rpc!.call(
+      'embed',
+      {
+        modelId: cfg.modelId,
+        device: cfg.device,
+        texts: [args.text],
+      },
+      {
+        timeoutMs: 5 * 60_000,
+        onProgress: args.onProgress,
+      },
+    )) as any;
+
+    embedding = res?.embeddings?.[0] ?? null;
+    if (!embedding) throw new Error('No se pudo generar embedding.');
+  }
+
+  // 3) Persistir en cache local
   const ident = computeEmbeddingIdentity({
     modelId: cfg.modelId,
     device: cfg.device,
@@ -192,12 +261,24 @@ export async function embedQuery(args: EmbedQueryArgs): Promise<number[]> {
     device: args.model?.device ?? DEFAULT_MODEL.device,
   };
 
-  await ensureModelInitialized(cfg, args.onProgress);
-
   // El modelo E5 requiere prefijo 'query:' para queries de búsqueda
   const text = args.query.startsWith('query:')
     ? args.query
     : `query: ${args.query}`;
+
+  // Detectar modo: servidor (rápido) vs worker (fallback)
+  const useServer = await detectEmbeddingsMode();
+
+  if (useServer) {
+    // MODO SERVIDOR: Más rápido
+    args.onProgress?.({ phase: 'running', label: 'Buscando...', percent: 50 });
+    const embedding = await generateEmbeddingServer(text);
+    args.onProgress?.({ phase: 'ready', label: 'Listo', percent: 100 });
+    return embedding;
+  }
+
+  // MODO WORKER: Fallback
+  await ensureModelInitialized(cfg, args.onProgress);
 
   const res = (await rpc!.call(
     'embed',
@@ -207,7 +288,7 @@ export async function embedQuery(args: EmbedQueryArgs): Promise<number[]> {
       texts: [text],
     },
     {
-      timeoutMs: 10 * 60_000,
+      timeoutMs: 5 * 60_000,
       onProgress: args.onProgress,
     },
   )) as any;
