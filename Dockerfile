@@ -6,7 +6,7 @@
 # -----------------------------------------------------------------------------
 # Stage 1: Dependencies
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS deps
+FROM node:20-bullseye-slim AS deps
 
 # Instalar pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
@@ -22,7 +22,7 @@ RUN pnpm install --frozen-lockfile
 # -----------------------------------------------------------------------------
 # Stage 2: Builder
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS builder
+FROM node:20-bullseye-slim AS builder
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
@@ -50,10 +50,10 @@ RUN pnpm build
 # -----------------------------------------------------------------------------
 # Stage 3: Runner (Producción)
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS runner
+FROM node:20-bullseye-slim AS runner
 
-# Instalar netcat para healthcheck y pnpm para migraciones
-RUN apk add --no-cache netcat-openbsd
+# Instalar netcat para healthcheck y pnpm para migraciones (Debian)
+RUN apt-get update && apt-get install -y netcat-openbsd && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Crear usuario no-root para seguridad
