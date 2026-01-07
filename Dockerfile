@@ -41,6 +41,10 @@ ENV DATABASE_URL=${DATABASE_URL}
 ENV BETTER_AUTH_URL=${BETTER_AUTH_URL}
 ENV BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
 
+# Descargar modelo de embeddings para servir localmente
+# Esto evita que cada cliente descargue desde Hugging Face
+RUN node scripts/download-model.mjs
+
 # Build de la aplicación
 RUN pnpm build
 

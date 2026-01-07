@@ -26,3 +26,6 @@ pnpm-debug.log*
 # Uploaded files (keep .gitkeep)
 public/uploads/*
 !public/uploads/.gitkeep
+
+# Downloaded models (se descargan en Docker build)
+public/models/

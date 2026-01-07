@@ -1,6 +1,8 @@
 /* Web Worker: Embeddings via @huggingface/transformers (v3)
    Optimizado para WebGPU con fallback a WASM.
    Soporta progress_callback nativo de v3.
+   
+   En Docker/LAN: usa modelos locales servidos desde /models/
 */
 
 import {
@@ -8,8 +10,44 @@ import {
   env,
 } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.19';
 
-// Configuración
-env.allowLocalModels = false;
+// Configuración base
+env.allowLocalModels = true;
+env.allowRemoteModels = true; // Fallback a remoto si local no existe
+
+// Detectar si estamos en un entorno donde hay modelos locales disponibles
+// Esto se configura automáticamente basado en la URL del worker
+const LOCAL_MODEL_PATH = '/models/';
+
+// Verificar si hay modelos locales disponibles
+async function checkLocalModelsAvailable() {
+  try {
+    // Intentar cargar el config.json del modelo local
+    const testUrl = `${LOCAL_MODEL_PATH}Xenova/multilingual-e5-small/config.json`;
+    const response = await fetch(testUrl, { method: 'HEAD' });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Configurar rutas de modelos
+let modelsConfigured = false;
+async function ensureModelsConfig() {
+  if (modelsConfigured) return;
+  modelsConfigured = true;
+
+  const hasLocalModels = await checkLocalModelsAvailable();
+
+  if (hasLocalModels) {
+    // Usar modelos locales (servidos desde Docker)
+    env.localModelPath = LOCAL_MODEL_PATH;
+    env.allowRemoteModels = false; // No ir a Hugging Face
+    console.log('[Worker] Usando modelos locales desde:', LOCAL_MODEL_PATH);
+  } else {
+    // Fallback a Hugging Face CDN
+    console.log('[Worker] Modelos locales no disponibles, usando CDN remoto');
+  }
+}
 
 // Detectar si el cache del navegador está disponible
 // En Workers accediendo desde IPs de red local (no localhost), puede no estar disponible
@@ -87,7 +125,8 @@ function detectDevice(preferredDevice) {
 }
 
 async function ensurePipeline({ modelId, device, reportProgress }) {
-  // Asegurar configuración de cache antes de cargar
+  // Asegurar configuración de modelos y cache antes de cargar
+  await ensureModelsConfig();
   await ensureCacheConfig();
 
   const resolvedDevice = detectDevice(device);
