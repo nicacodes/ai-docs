@@ -1,6 +1,6 @@
 /**
  * Search Store - Estado global para búsqueda semántica.
- * 
+ *
  * Usa nanostores para comunicar estado entre componentes/islands de Astro.
  */
 
@@ -10,12 +10,11 @@ import { atom, computed } from 'nanostores';
 // Types
 // ============================================================================
 
-export type SearchPhase = 
-  | 'idle' 
-  | 'loading-model' 
-  | 'generating-embedding' 
-  | 'searching' 
-  | 'done' 
+export type SearchPhase =
+  | 'idle'
+  | 'generating-embedding'
+  | 'searching'
+  | 'done'
   | 'error';
 
 export interface SearchProgress {
@@ -66,13 +65,13 @@ export const $searchProgress = atom<SearchProgress | null>(null);
 /** Indica si la búsqueda está en proceso */
 export const $isSearching = computed(
   $searchPhase,
-  (phase) => phase === 'loading-model' || phase === 'generating-embedding' || phase === 'searching'
+  (phase) => phase === 'generating-embedding' || phase === 'searching',
 );
 
 /** Indica si hay un error activo */
 export const $hasSearchError = computed(
   $searchPhase,
-  (phase) => phase === 'error'
+  (phase) => phase === 'error',
 );
 
 /** Estado combinado para debugging */
@@ -84,7 +83,7 @@ export const $searchState = computed(
     results,
     error,
     progress,
-  })
+  }),
 );
 
 // ============================================================================
@@ -96,10 +95,10 @@ export const $searchState = computed(
  */
 export function startSearch(query: string) {
   $searchQuery.set(query);
-  $searchPhase.set('loading-model');
+  $searchPhase.set('generating-embedding');
   $searchError.set(null);
   $searchResults.set([]);
-  $searchProgress.set({ label: 'Cargando modelo de embeddings...', percent: null });
+  $searchProgress.set({ label: 'Generando embedding...', percent: null });
 }
 
 /**
@@ -107,7 +106,10 @@ export function startSearch(query: string) {
  */
 export function setGeneratingEmbedding() {
   $searchPhase.set('generating-embedding');
-  $searchProgress.set({ label: 'Generando embedding de la búsqueda...', percent: null });
+  $searchProgress.set({
+    label: 'Generando embedding de la búsqueda...',
+    percent: null,
+  });
 }
 
 /**
@@ -115,7 +117,10 @@ export function setGeneratingEmbedding() {
  */
 export function setSearchingPhase() {
   $searchPhase.set('searching');
-  $searchProgress.set({ label: 'Buscando documentos similares...', percent: null });
+  $searchProgress.set({
+    label: 'Buscando documentos similares...',
+    percent: null,
+  });
 }
 
 /**

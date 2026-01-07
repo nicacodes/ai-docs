@@ -45,28 +45,28 @@ function SearchResults({ query, className }: SearchResultsProps) {
       }
 
       setError(null);
-      setPhase('loading-model');
-      setProgressInfo('Cargando modelo de embeddings...');
+      setPhase('generating-embedding');
+      setProgressInfo('Generando embedding de la búsqueda...');
 
       // Update global store - notifies GlobalHeader
       startSearch(searchQuery);
 
       try {
         // 1) Generar embedding de la query
-        setPhase('generating-embedding');
-        setProgressInfo('Generando embedding de la búsqueda...');
         setGeneratingEmbedding();
 
         const queryEmbedding = await embedQuery({
           query: searchQuery,
           onProgress: (p: any) => {
-            if (p?.status === 'progress' && p?.file) {
-              const percent = Math.round((p.loaded / p.total) * 100);
-              setProgressInfo(`Descargando modelo: ${percent}%`);
+            // Formato del servidor: { phase, label, percent }
+            if (p?.phase === 'running') {
+              setProgressInfo(p.label || 'Generando embedding...');
               setSearchProgress({
-                label: `Descargando modelo: ${percent}%`,
-                percent,
+                label: p.label || 'Generando embedding...',
+                percent: p.percent || null,
               });
+            } else if (p?.phase === 'cached') {
+              setProgressInfo('Desde cache');
             }
           },
         });
@@ -145,10 +145,7 @@ function SearchResults({ query, className }: SearchResultsProps) {
     [query, phase, performSearch],
   );
 
-  const isLoading =
-    phase === 'loading-model' ||
-    phase === 'generating-embedding' ||
-    phase === 'searching';
+  const isLoading = phase === 'generating-embedding' || phase === 'searching';
 
   // Error state
   if (phase === 'error') {
@@ -185,7 +182,6 @@ function SearchResults({ query, className }: SearchResultsProps) {
           </div>
           <div className='flex-1 min-w-0'>
             <p className='text-sm font-medium text-foreground'>
-              {phase === 'loading-model' && 'Preparando IA...'}
               {phase === 'generating-embedding' && 'Analizando búsqueda...'}
               {phase === 'searching' && 'Buscando...'}
             </p>
