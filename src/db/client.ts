@@ -15,8 +15,10 @@ function readDatabaseUrl() {
 
 function createDb(url: string): Db {
   const queryClient = postgres(url, {
-    // En desarrollo, evitamos abrir demasiadas conexiones por HMR.
-    max: process.env.NODE_ENV === 'production' ? 10 : 1,
+    // Pool de conexiones optimizado
+    max: process.env.NODE_ENV === 'production' ? 20 : 3,
+    idle_timeout: 20, // Cerrar conexiones inactivas después de 20s
+    connect_timeout: 10, // Timeout de conexión
   });
 
   return drizzle(queryClient, { schema });
@@ -36,10 +38,8 @@ export function getDb(): Db {
 
   const db = createDb(url);
 
-  // Cache global para evitar reconexiones por HMR.
-  if (process.env.NODE_ENV !== 'production') {
-    globalForDb.__aiEditorDb = db;
-  }
+  // Cache global para evitar reconexiones (tanto en desarrollo como producción)
+  globalForDb.__aiEditorDb = db;
 
   return db;
 }
