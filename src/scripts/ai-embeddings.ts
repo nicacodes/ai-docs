@@ -33,6 +33,7 @@ const DEFAULT_MODEL: EmbeddingModelConfig = {
 let rpc: ReturnType<typeof createWorkerRpcClient> | null = null;
 let modelInitPromise: Promise<void> | null = null;
 let activeModel: EmbeddingModelConfig | null = null;
+let modelReady = false; // Flag rápido para evitar llamadas async innecesarias
 
 /**
  * Asegura que el worker y RPC client estén listos.
@@ -43,7 +44,7 @@ export async function ensureSwReady() {
   if (rpc && isWorkerAlive()) {
     return;
   }
-  
+
   // Crear/obtener worker y RPC
   const worker = getEmbeddingsWorker('/embeddings-worker.js');
   rpc = createWorkerRpcClient(worker);
@@ -61,14 +62,30 @@ export async function initEmbeddingModel(
   };
 
   return await rpc!.call('init', cfg, {
-    timeoutMs: 10 * 60_000,
+    timeoutMs: 5 * 60_000, // 5 min (reducido de 10)
     onProgress,
   });
 }
 
 /**
+ * Pre-carga el modelo en background para que esté listo cuando se necesite.
+ * Llamar esto al cargar la página mejora la experiencia del usuario.
+ */
+export function preloadModel(model?: Partial<EmbeddingModelConfig>) {
+  const cfg: EmbeddingModelConfig = {
+    modelId: model?.modelId ?? DEFAULT_MODEL.modelId,
+    device: model?.device ?? DEFAULT_MODEL.device,
+  };
+
+  // Iniciar en background sin esperar
+  ensureModelInitialized(cfg).catch((err) => {
+    console.warn('[Embeddings] Error pre-cargando modelo:', err);
+  });
+}
+
+/**
  * Asegura que el modelo esté inicializado.
- * Reutiliza la promesa existente si el modelo es el mismo.
+ * OPTIMIZADO: Usa flag rápido para evitar operaciones async cuando el modelo ya está listo.
  */
 export async function ensureModelInitialized(
   cfg: EmbeddingModelConfig,
@@ -77,13 +94,23 @@ export async function ensureModelInitialized(
   const sameModel =
     activeModel?.modelId === cfg.modelId && activeModel?.device === cfg.device;
 
-  if (modelInitPromise && sameModel) return modelInitPromise;
+  // FAST PATH: Si ya está listo y es el mismo modelo, retornar inmediatamente
+  if (modelReady && sameModel) {
+    return;
+  }
+
+  // Si hay una inicialización en curso para el mismo modelo, esperar
+  if (modelInitPromise && sameModel) {
+    return modelInitPromise;
+  }
 
   modelInitPromise = (async () => {
     await initEmbeddingModel(cfg, onProgress);
     activeModel = cfg;
+    modelReady = true;
   })().catch((err) => {
     modelInitPromise = null;
+    modelReady = false;
     throw err;
   });
 
@@ -96,18 +123,21 @@ export async function embedPost(args: EmbedPostArgs): Promise<number[]> {
     device: args.model?.device ?? DEFAULT_MODEL.device,
   };
 
-  await ensureModelInitialized(cfg, args.onProgress);
-
-  // 1) cache local por hash del contenido + modelo (no depende de postId)
+  // 1) Verificar cache local ANTES de tocar el modelo (más rápido)
   const cached = await getStoredEmbedding({
     modelId: cfg.modelId,
     device: cfg.device,
     text: args.text,
   });
 
-  if (cached?.embedding?.length) return cached.embedding;
+  if (cached?.embedding?.length) {
+    return cached.embedding;
+  }
 
-  // 2) generar con SW
+  // 2) Solo inicializar modelo si no hay cache
+  await ensureModelInitialized(cfg, args.onProgress);
+
+  // 3) Generar embedding con el worker
   const res = (await rpc!.call(
     'embed',
     {
@@ -116,7 +146,7 @@ export async function embedPost(args: EmbedPostArgs): Promise<number[]> {
       texts: [args.text],
     },
     {
-      timeoutMs: 10 * 60_000,
+      timeoutMs: 5 * 60_000, // 5 min max (reducido de 10)
       onProgress: args.onProgress,
     },
   )) as any;
@@ -124,7 +154,7 @@ export async function embedPost(args: EmbedPostArgs): Promise<number[]> {
   const embedding = (res?.embeddings?.[0] ?? null) as number[] | null;
   if (!embedding) throw new Error('No se pudo generar embedding.');
 
-  // 3) persistir
+  // 4) Persistir en cache local
   const ident = computeEmbeddingIdentity({
     modelId: cfg.modelId,
     device: cfg.device,
@@ -183,7 +213,8 @@ export async function embedQuery(args: EmbedQueryArgs): Promise<number[]> {
   )) as any;
 
   const embedding = (res?.embeddings?.[0] ?? null) as number[] | null;
-  if (!embedding) throw new Error('No se pudo generar embedding para la query.');
+  if (!embedding)
+    throw new Error('No se pudo generar embedding para la query.');
 
   return embedding;
 }
@@ -238,12 +269,14 @@ export function subscribeDebouncedEmbeddings(opts: {
  * El worker se mantiene vivo para preservar el modelo en memoria.
  * Solo llamar terminateEmbeddingsWorker() si realmente quieres eliminar el modelo.
  */
-export function disposeEmbeddingsClient(options?: { terminateWorker?: boolean }) {
+export function disposeEmbeddingsClient(options?: {
+  terminateWorker?: boolean;
+}) {
   if (rpc) {
     rpc.dispose();
     rpc = null;
   }
-  
+
   // Por defecto NO terminamos el worker para preservar el modelo en memoria
   if (options?.terminateWorker) {
     terminateEmbeddingsWorker();

@@ -1,8 +1,6 @@
 /* Web Worker: Embeddings via @huggingface/transformers (v3)
-   Optimizado para WebGPU con fallback a WASM.
-   Soporta progress_callback nativo de v3.
-   
-   En Docker/LAN: usa modelos locales servidos desde /models/
+   Optimizado para rendimiento máximo.
+   El modelo se mantiene en memoria después de la primera carga.
 */
 
 import {
@@ -10,72 +8,57 @@ import {
   env,
 } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.19';
 
-// Configuración base
-env.allowLocalModels = true;
-env.allowRemoteModels = true; // Fallback a remoto si local no existe
+// ============================================================================
+// CONFIGURACIÓN INICIAL (se ejecuta UNA VEZ al cargar el worker)
+// ============================================================================
 
-// Detectar si estamos en un entorno donde hay modelos locales disponibles
-// Esto se configura automáticamente basado en la URL del worker
+// Configurar ambiente inmediatamente
+env.allowLocalModels = true;
+env.allowRemoteModels = true;
+
+// Detectar cache disponible de forma síncrona si es posible
+env.useBrowserCache = typeof caches !== 'undefined';
+
+// Ruta de modelos locales (Docker)
 const LOCAL_MODEL_PATH = '/models/';
 
-// Verificar si hay modelos locales disponibles
-async function checkLocalModelsAvailable() {
-  try {
-    // Intentar cargar el config.json del modelo local
-    const testUrl = `${LOCAL_MODEL_PATH}Xenova/multilingual-e5-small/config.json`;
-    const response = await fetch(testUrl, { method: 'HEAD' });
-    return response.ok;
-  } catch {
-    return false;
+// Estado de configuración
+let envConfigured = false;
+let localModelsAvailable = null; // null = no verificado, true/false = resultado
+
+// Configuración lazy - solo verifica una vez
+async function ensureEnvConfig() {
+  if (envConfigured) return;
+  envConfigured = true;
+
+  // Verificar modelos locales solo si no se ha hecho
+  if (localModelsAvailable === null) {
+    try {
+      const testUrl = `${LOCAL_MODEL_PATH}Xenova/multilingual-e5-small/config.json`;
+      const response = await fetch(testUrl, { method: 'HEAD' });
+      localModelsAvailable = response.ok;
+    } catch {
+      localModelsAvailable = false;
+    }
   }
-}
 
-// Configurar rutas de modelos
-let modelsConfigured = false;
-async function ensureModelsConfig() {
-  if (modelsConfigured) return;
-  modelsConfigured = true;
-
-  const hasLocalModels = await checkLocalModelsAvailable();
-
-  if (hasLocalModels) {
-    // Usar modelos locales (servidos desde Docker)
+  if (localModelsAvailable) {
     env.localModelPath = LOCAL_MODEL_PATH;
-    env.allowRemoteModels = false; // No ir a Hugging Face
-    console.log('[Worker] Usando modelos locales desde:', LOCAL_MODEL_PATH);
+    env.allowRemoteModels = false;
+    console.log('[Worker] Modelos locales disponibles');
   } else {
-    // Fallback a Hugging Face CDN
-    console.log('[Worker] Modelos locales no disponibles, usando CDN remoto');
+    console.log('[Worker] Usando CDN remoto');
   }
-}
 
-// Detectar si el cache del navegador está disponible
-// En Workers accediendo desde IPs de red local (no localhost), puede no estar disponible
-async function checkCacheAvailable() {
-  try {
-    if (typeof caches === 'undefined') return false;
-    // Intentar abrir un cache de prueba
-    await caches.open('test-cache-availability');
-    await caches.delete('test-cache-availability');
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// Inicializar configuración de cache
-let cacheConfigured = false;
-async function ensureCacheConfig() {
-  if (cacheConfigured) return;
-  cacheConfigured = true;
-
-  const cacheAvailable = await checkCacheAvailable();
-  if (cacheAvailable) {
-    env.useBrowserCache = true;
-    console.log('[Worker] Browser cache disponible');
-  } else {
-    env.useBrowserCache = false;
-    console.warn('[Worker] Browser cache NO disponible, deshabilitando caché');
+  // Verificar cache de forma más robusta solo si es necesario
+  if (typeof caches !== 'undefined') {
+    try {
+      await caches.open('test');
+      await caches.delete('test');
+      env.useBrowserCache = true;
+    } catch {
+      env.useBrowserCache = false;
+    }
   }
 }
 
@@ -124,29 +107,36 @@ function detectDevice(preferredDevice) {
   return hasWebGPU ? 'webgpu' : 'wasm';
 }
 
-async function ensurePipeline({ modelId, device, reportProgress }) {
-  // Asegurar configuración de modelos y cache antes de cargar
-  await ensureModelsConfig();
-  await ensureCacheConfig();
+// Promesa de pipeline en curso para evitar inicializaciones paralelas
+let pipelinePromise = null;
 
+async function ensurePipeline({ modelId, device, reportProgress }) {
   const resolvedDevice = detectDevice(device);
 
+  // FAST PATH: Si el modelo ya está en memoria, retornar inmediatamente
   if (
     featureExtractionPipeline &&
     currentConfig.modelId === modelId &&
     currentConfig.device === resolvedDevice
   ) {
-    // Modelo ya está en memoria - notificar que está listo
-    if (reportProgress) {
-      reportProgress({
-        phase: 'cached',
-        label: 'Modelo en memoria',
-        percent: 100,
-        fromCache: true,
-      });
-    }
+    // Notificar sin delay
+    reportProgress?.({
+      phase: 'cached',
+      label: 'Listo',
+      percent: 100,
+      fromCache: true,
+    });
     return featureExtractionPipeline;
   }
+
+  // Si hay una inicialización en curso, esperar a que termine
+  if (pipelinePromise) {
+    await pipelinePromise;
+    return featureExtractionPipeline;
+  }
+
+  // Configurar ambiente (solo la primera vez)
+  await ensureEnvConfig();
 
   const report = typeof reportProgress === 'function' ? reportProgress : null;
 
@@ -168,8 +158,9 @@ async function ensurePipeline({ modelId, device, reportProgress }) {
     `[Worker] Iniciando pipeline: model=${modelId}, device=${resolvedDevice}`,
   );
 
-  try {
-    featureExtractionPipeline = await pipeline('feature-extraction', modelId, {
+  // Crear promesa de inicialización
+  pipelinePromise = (async () => {
+    const pipe = await pipeline('feature-extraction', modelId, {
       device: resolvedDevice,
       dtype: 'fp32',
       progress_callback: (data) => {
@@ -209,30 +200,32 @@ async function ensurePipeline({ modelId, device, reportProgress }) {
       },
     });
 
+    return pipe;
+  })();
+
+  try {
+    featureExtractionPipeline = await pipelinePromise;
     currentConfig = { modelId, device: resolvedDevice };
 
-    // Determinar si cargó desde caché (rápido y sin eventos de descarga)
     const loadTime = Date.now() - startTime;
     const loadedFromCache = !hadDownloadProgress || loadTime < 2000;
 
-    if (report) {
-      report({
-        phase: 'ready',
-        label: loadedFromCache
-          ? 'Modelo cargado desde caché'
-          : 'Modelo descargado',
-        percent: 100,
-        fromCache: loadedFromCache,
-      });
-    }
+    report?.({
+      phase: 'ready',
+      label: loadedFromCache ? 'Modelo listo' : 'Modelo descargado',
+      percent: 100,
+      fromCache: loadedFromCache,
+    });
 
     console.log(
-      `[Worker] Pipeline listo: ${modelId} en ${resolvedDevice} (cache: ${loadedFromCache})`,
+      `[Worker] Pipeline listo: ${modelId} en ${resolvedDevice} (${loadTime}ms)`,
     );
     return featureExtractionPipeline;
   } catch (err) {
     console.error('[Worker] Error inicializando pipeline:', err);
     throw err;
+  } finally {
+    pipelinePromise = null;
   }
 }
 

@@ -115,8 +115,14 @@ const pageTitle =
   import { editorViewCtx, prosePluginsCtx } from '@milkdown/core';
   import { keymap } from '@milkdown/prose/keymap';
   import { editorInstance, setCurrentTitle } from '@/store/editor-store';
-  import { disposeEmbeddingsClient } from '@/scripts/ai-embeddings';
+  import {
+    disposeEmbeddingsClient,
+    preloadModel,
+  } from '@/scripts/ai-embeddings';
   import { loadDraftContent, saveDraftContent } from '@/lib/utils';
+
+  // Pre-cargar el modelo de embeddings en background inmediatamente
+  preloadModel();
 
   let crepeInstance: Crepe | null = null;
   let updateDebounceId: number | null = null;
