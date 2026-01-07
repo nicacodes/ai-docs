@@ -62,6 +62,7 @@ services:
       UPLOAD_DIR: /app/uploads
     volumes:
       - uploads_data:/app/uploads
+      - model_cache:/app/.cache
     ports:
       - '${APP_PORT:-4321}:4321'
 
@@ -69,6 +70,8 @@ volumes:
   postgres_data:
     driver: local
   uploads_data:
+    driver: local
+  model_cache:
     driver: local
 
 networks:

@@ -208,17 +208,10 @@ export function UnifiedEditorHeader({
       const cleanedText = preparePassageText(title, rawMarkdown);
       const embeddingText = `passage: ${cleanedText}`;
 
-      const MODEL = {
-        modelId: 'Xenova/multilingual-e5-small',
-        device: 'wasm' as const,
-      };
-
       const embedding = await embedPost({
         postId: documentId,
         text: embeddingText,
-        model: MODEL,
         onProgress: (payload: unknown) => {
-          // Usar el mismo patrón que saveDocumentWithEmbeddings
           const p = payload as {
             percent?: number;
             label?: string;
@@ -226,7 +219,6 @@ export function UnifiedEditorHeader({
             fromCache?: boolean;
           };
           if (p?.phase === 'cached' || p?.phase === 'ready') {
-            // Modelo en caché - no mostrar porcentaje, solo el label
             setEmbeddingProgress({
               label: 'Generando vectores',
               percent: null,
@@ -271,8 +263,8 @@ export function UnifiedEditorHeader({
             chunkIndex: 0,
             chunkText: cleanedText,
             embedding,
-            modelId: MODEL.modelId,
-            device: MODEL.device,
+            modelId: 'Xenova/multilingual-e5-small',
+            device: 'server',
             pooling: 'mean',
             normalize: true,
           },

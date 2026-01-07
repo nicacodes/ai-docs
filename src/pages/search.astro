@@ -42,10 +42,6 @@ const query = Astro.url.searchParams.get('q') || '';
 </Layout>
 
 <script>
-  // Pre-cargar el modelo de embeddings para búsquedas más rápidas
-  import { preloadModel } from '@/scripts/ai-embeddings';
-  preloadModel();
-
   // Handle search navigation from SearchAutocomplete
   document.addEventListener('astro:page-load', () => {
     const container = document.getElementById('search-input-container');

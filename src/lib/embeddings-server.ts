@@ -1,68 +1,122 @@
 /**
  * Servicio de Embeddings Server-Side
  *
- * Ejecuta el modelo de embeddings en el servidor Node.js.
- * El modelo se carga una vez y se mantiene en memoria.
+ * Ejecuta el modelo de embeddings en el servidor Node.js siguiendo
+ * las mejores prácticas de Transformers.js para Node.
+ *
+ * El modelo se descarga y cachea automáticamente en el servidor,
+ * y se mantiene en memoria para requests rápidas.
  */
 
 import { pipeline, env } from '@huggingface/transformers';
+import path from 'node:path';
 
-// Configuración
+// ============================================================================
+// CONFIGURACIÓN DE TRANSFORMERS.JS PARA NODE.JS
+// ============================================================================
+
+// Configurar directorio de cache para modelos
+// En desarrollo: ./node_modules/@huggingface/transformers/.cache/
+// En Docker: /app/.cache/ (persistente)
+if (process.env.NODE_ENV === 'production') {
+  env.cacheDir = path.resolve(process.cwd(), '.cache');
+} else {
+  // En desarrollo usa el cache por defecto en node_modules
+  env.cacheDir = path.resolve(
+    process.cwd(),
+    'node_modules',
+    '@huggingface/transformers',
+    '.cache',
+  );
+}
+
+// Permitir modelos locales y remotos
 env.allowLocalModels = true;
 env.allowRemoteModels = true;
-env.useBrowserCache = false; // Estamos en Node.js
+
+// Browser cache no aplica en Node.js
+env.useBrowserCache = false;
+
+console.log('[Embeddings Server] Cache dir:', env.cacheDir);
 
 const MODEL_ID = 'Xenova/multilingual-e5-small';
 export const EMBEDDING_DIMENSIONS = 384;
 
-// Singleton del pipeline - usamos any para evitar tipos complejos
-let embeddingPipeline: any = null;
-let pipelinePromise: Promise<any> | null = null;
-let isReady = false;
+// ============================================================================
+// SINGLETON PATTERN PARA EL PIPELINE
+// ============================================================================
 
-/**
- * Obtiene el pipeline de embeddings, inicializándolo si es necesario.
- * Usa singleton para mantener el modelo en memoria.
- */
-async function getPipeline(): Promise<any> {
-  // Fast path
-  if (embeddingPipeline && isReady) {
-    return embeddingPipeline;
-  }
+class EmbeddingsPipeline {
+  static instance: any = null;
+  static initPromise: Promise<any> | null = null;
+  static isReady = false;
 
-  // Evitar inicializaciones paralelas
-  if (pipelinePromise) {
-    return pipelinePromise;
-  }
+  /**
+   * Obtiene la instancia del pipeline usando singleton pattern.
+   * Lazy-loading: solo se carga cuando se necesita.
+   */
+  static async getInstance(
+    progress_callback?: (data: any) => void,
+  ): Promise<any> {
+    // Fast path: ya está listo
+    if (this.instance !== null && this.isReady) {
+      return this.instance;
+    }
 
-  console.log('[Embeddings Server] Inicializando modelo...');
-  const startTime = Date.now();
+    // Evitar inicializaciones paralelas
+    if (this.initPromise !== null) {
+      return this.initPromise;
+    }
 
-  pipelinePromise = pipeline('feature-extraction', MODEL_ID, {
-    dtype: 'fp32',
-  } as any);
+    console.log('[Embeddings Server] Inicializando pipeline...');
+    const startTime = Date.now();
 
-  try {
-    embeddingPipeline = await pipelinePromise;
-    isReady = true;
-    console.log(
-      `[Embeddings Server] Modelo listo en ${Date.now() - startTime}ms`,
-    );
+    this.initPromise = (async () => {
+      try {
+        this.instance = await pipeline('feature-extraction', MODEL_ID, {
+          dtype: 'fp32',
+          progress_callback:
+            progress_callback ||
+            ((data: any) => {
+              if (data.status === 'progress' && data.file) {
+                console.log(
+                  `[Embeddings Server] Descargando ${
+                    data.file
+                  }: ${data.progress?.toFixed(0)}%`,
+                );
+              }
+            }),
+        } as any);
 
-    return embeddingPipeline;
-  } catch (error) {
-    pipelinePromise = null;
-    console.error('[Embeddings Server] Error inicializando:', error);
-    throw error;
+        this.isReady = true;
+        const loadTime = Date.now() - startTime;
+        console.log(`[Embeddings Server] Pipeline listo en ${loadTime}ms`);
+
+        return this.instance;
+      } catch (error) {
+        this.initPromise = null;
+        console.error(
+          '[Embeddings Server] Error inicializando pipeline:',
+          error,
+        );
+        throw error;
+      }
+    })();
+
+    return this.initPromise;
   }
 }
+
+// ============================================================================
+// FUNCIONES PÚBLICAS
+// ============================================================================
 
 /**
  * Genera embedding para un texto.
  * El texto debe incluir el prefijo apropiado (passage: o query:).
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const pipe = await getPipeline();
+  const pipe = await EmbeddingsPipeline.getInstance();
 
   const output = await pipe(text, {
     pooling: 'mean',
@@ -86,7 +140,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 export async function generateEmbeddingsBatch(
   texts: string[],
 ): Promise<number[][]> {
-  const pipe = await getPipeline();
+  const pipe = await EmbeddingsPipeline.getInstance();
 
   const output = await pipe(texts, {
     pooling: 'mean',
@@ -111,15 +165,15 @@ export async function generateEmbeddingsBatch(
 
 /**
  * Pre-carga el modelo para que esté listo cuando se necesite.
- * Llamar esto al iniciar el servidor.
+ * Útil para llamar al iniciar el servidor.
  */
 export async function preloadModel(): Promise<void> {
-  await getPipeline();
+  await EmbeddingsPipeline.getInstance();
 }
 
 /**
  * Verifica si el modelo está listo.
  */
 export function isModelReady(): boolean {
-  return isReady;
+  return EmbeddingsPipeline.isReady;
 }

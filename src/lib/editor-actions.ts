@@ -29,16 +29,7 @@ import {
   type SaveStatus,
 } from '@/store/editor-store';
 import { clearDraftState } from '@/store/draft-store';
-import {
-  embedPost,
-  ensureSwReady,
-  ensureModelInitialized,
-} from '@/scripts/ai-embeddings';
-
-const MODEL = {
-  modelId: 'Xenova/multilingual-e5-small',
-  device: 'wasm' as const,
-};
+import { embedPost } from '@/scripts/ai-embeddings';
 
 // Solo tracking local de estado de guardado
 let isSaving = false;
@@ -130,21 +121,15 @@ function clearCurrentDoc() {
 }
 
 /**
- * Asegura que el modelo de embeddings esté listo para usar.
- * Usa la función centralizada de ai-embeddings.ts para evitar duplicación de estado.
+ * Asegura que el modelo esté listo en el servidor.
+ * Ya no requiere inicialización - el servidor lo maneja automáticamente.
  */
 export async function ensureModelReady() {
   try {
-    setModelLoading({ label: 'Cargando modelo', percent: 0 });
-    await ensureSwReady();
-    await ensureModelInitialized(MODEL, (payload: unknown) => {
-      const next = normalizeProgressPayload(payload);
-      if (next) setModelLoading(next);
-    });
     setModelReady();
   } catch (err) {
-    console.warn('No se pudo inicializar embeddings:', err);
-    setModelError('No se pudo cargar el modelo');
+    console.warn('Error al verificar embeddings:', err);
+    setModelError('No se pudo conectar con el servidor');
     throw err;
   }
 }
@@ -316,7 +301,6 @@ async function saveDocumentWithEmbeddings() {
     const embedding = await embedPost({
       postId: saved.id,
       text: embeddingText,
-      model: MODEL,
       onProgress: (payload: unknown) => {
         const next = normalizeProgressPayload(payload);
         if (next) setEmbeddingProgress(next);
@@ -330,8 +314,8 @@ async function saveDocumentWithEmbeddings() {
           chunkIndex: 0,
           chunkText: cleanedText,
           embedding,
-          modelId: MODEL.modelId,
-          device: MODEL.device,
+          modelId: 'Xenova/multilingual-e5-small',
+          device: 'server',
           pooling: 'mean',
           normalize: true,
         },

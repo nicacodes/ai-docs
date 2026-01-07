@@ -41,12 +41,12 @@ ENV DATABASE_URL=${DATABASE_URL}
 ENV BETTER_AUTH_URL=${BETTER_AUTH_URL}
 ENV BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
 
-# Descargar modelo de embeddings para servir localmente
-# Esto evita que cada cliente descargue desde Hugging Face
-RUN node scripts/download-model.mjs
-
-# Build de la aplicación
+# Build de la aplicación primero (necesario para el preload script)
 RUN pnpm build
+
+# Pre-cargar modelo de embeddings en el servidor
+# Esto descarga el modelo durante el build de la imagen para que no se descargue en cada request
+RUN node scripts/preload-server-model.mjs
 
 # -----------------------------------------------------------------------------
 # Stage 3: Runner (Producción)
@@ -76,11 +76,11 @@ COPY --from=builder /app/public ./public
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-# Crear directorio de uploads
-RUN mkdir -p /app/uploads
+# Crear directorios necesarios
+RUN mkdir -p /app/uploads /app/.cache
 
 # Cambiar propietario de archivos
-RUN chown -R astro:nodejs /app /app/uploads
+RUN chown -R astro:nodejs /app /app/uploads /app/.cache
 
 USER astro
 

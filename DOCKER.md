@@ -99,6 +99,40 @@ Para acceder desde otros dispositivos en tu red local:
    ```
 4. Accede desde otro dispositivo: `http://TU_IP:4321`
 
+## Embeddings Server-Side
+
+**IMPORTANTE:** Los embeddings se generan en el servidor (no en el navegador),
+lo que es **mucho más rápido** especialmente para red local.
+
+### Cómo funciona:
+
+1. **Primera inicialización (~10-30s)**: El servidor descarga el modelo de
+   embeddings (~100MB) y lo cachea
+2. **Requests siguientes (~100-500ms)**: El modelo ya está en memoria,
+   respuestas rápidas
+3. **Persistencia**: El modelo se almacena en un volumen Docker (`model_cache`)
+   y no se descarga de nuevo
+
+### Beneficios vs Navegador:
+
+| Aspecto              | Servidor (Docker)         | Navegador (WASM)      |
+| -------------------- | ------------------------- | --------------------- |
+| Primera carga        | 10-30s (solo una vez)     | 10-60s (cada cliente) |
+| Requests siguientes  | 100-500ms                 | 5-10s                 |
+| Uso de red           | Una vez (servidor)        | Cada cliente descarga |
+| Dispositivos móviles | ✅ Funciona perfecto      | ❌ Muy lento          |
+| Múltiples usuarios   | ✅ Comparten mismo modelo | ❌ Cada uno descarga  |
+
+### Verificar estado del modelo:
+
+```bash
+# Ver si el modelo está listo
+curl http://localhost:4321/api/embeddings
+
+# Respuesta:
+# {"ready":true,"model":"Xenova/multilingual-e5-small","dimensions":384}
+```
+
 ### Generar Secret Seguro
 
 ```bash
