@@ -41,12 +41,11 @@ ENV DATABASE_URL=${DATABASE_URL}
 ENV BETTER_AUTH_URL=${BETTER_AUTH_URL}
 ENV BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
 
-# Build de la aplicación primero (necesario para el preload script)
+# Build de la aplicación
 RUN pnpm build
 
-# Pre-cargar modelo de embeddings en el servidor
-# Esto descarga el modelo durante el build de la imagen para que no se descargue en cada request
-RUN node scripts/preload-server-model.mjs
+# Nota: El modelo de embeddings se descargará automáticamente en la primera petición
+# y se cacheará en el volumen /app/.cache (persistente entre reinicios)
 
 # -----------------------------------------------------------------------------
 # Stage 3: Runner (Producción)
