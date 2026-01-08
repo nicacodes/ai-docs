@@ -115,7 +115,11 @@ const pageTitle =
   import { editorViewCtx, prosePluginsCtx } from '@milkdown/core';
   import { keymap } from '@milkdown/prose/keymap';
   import { editorInstance, setCurrentTitle } from '@/store/editor-store';
-  import { loadDraftContent, saveDraftContent } from '@/lib/utils';
+  import {
+    loadDraftContent,
+    saveDraftContent,
+    clearDraftContent,
+  } from '@/lib/utils';
 
   let crepeInstance: Crepe | null = null;
   let updateDebounceId: number | null = null;
@@ -230,12 +234,27 @@ const pageTitle =
       setCurrentTitle(textoTitulo);
     }, 300);
 
-    // Handler para guardar draft (solo en modo new)
+    // Helper para verificar si el contenido tiene algo significativo
+    function hasSignificantContent(markdown: string): boolean {
+      if (!markdown) return false;
+      // Quitar espacios y el H1 vacío inicial
+      const cleaned = markdown
+        .replace(/^#\s*\n?/, '') // Quitar "# " o "# \n" al inicio
+        .trim();
+      return cleaned.length > 0;
+    }
+
+    // Handler para guardar draft (solo en modo new y si hay contenido)
     const saveDraft = debounce(async () => {
       if (!crepeInstance || mode !== 'new') return;
       try {
         const markdown = await crepeInstance.getMarkdown();
-        saveDraftContent(markdown);
+        if (hasSignificantContent(markdown)) {
+          saveDraftContent(markdown);
+        } else {
+          // Si no hay contenido significativo, borrar el draft
+          clearDraftContent();
+        }
       } catch (e) {
         console.warn('Error guardando draft:', e);
       }
@@ -265,10 +284,25 @@ const pageTitle =
 
   initEditor();
 
-  document.addEventListener('astro:before-swap', () => {
+  document.addEventListener('astro:before-swap', async () => {
     if (updateDebounceId) {
       window.clearTimeout(updateDebounceId);
       updateDebounceId = null;
+    }
+
+    // Verificar si hay contenido antes de salir
+    const mode = (window as any).__EDITOR_MODE__ || 'new';
+    if (crepeInstance && mode === 'new') {
+      try {
+        const markdown = await crepeInstance.getMarkdown();
+        // Si no hay contenido significativo, borrar el draft
+        const cleaned = markdown.replace(/^#\s*\n?/, '').trim();
+        if (!cleaned) {
+          clearDraftContent();
+        }
+      } catch {
+        // Ignorar errores al salir
+      }
     }
 
     if (crepeInstance) {
