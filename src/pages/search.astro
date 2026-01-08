@@ -1,8 +1,7 @@
 ---
 import Layout from '@/layouts/layout.astro';
-import { GlobalHeader } from '@/components/GlobalHeader';
+import { SearchHeader } from '@/components/SearchHeader';
 import { SearchResults } from '@/components/SearchResults';
-import { SearchAutocomplete } from '@/components/SearchAutocomplete';
 
 export const prerender = false;
 
@@ -12,7 +11,7 @@ const query = Astro.url.searchParams.get('q') || '';
 
 <Layout title={query ? `Búsqueda: ${query} - AI Docs` : 'Búsqueda - AI Docs'}>
   <div class='space-y-6'>
-    <GlobalHeader client:load showSearch={false} initialQuery={query} />
+    <SearchHeader client:load initialQuery={query} />
 
     <main class='px-1 mt-6'>
       <header class='mb-8'>
@@ -26,27 +25,7 @@ const query = Astro.url.searchParams.get('q') || '';
         </p>
       </header>
 
-      <!-- Search input with autocomplete -->
-      <div class='mb-8' id='search-input-container'>
-        <SearchAutocomplete
-          client:load
-          value={query}
-          placeholder='Escribe para buscar o ir a un documento...'
-          autoFocus={!query}
-        />
-      </div>
-
       <SearchResults client:load query={query} />
     </main>
   </div>
 </Layout>
-
-<script>
-  // Handle search navigation from SearchAutocomplete
-  document.addEventListener('astro:page-load', () => {
-    const container = document.getElementById('search-input-container');
-    if (!container) return;
-
-    // The SearchAutocomplete component will handle navigation via window.location
-  });
-</script>

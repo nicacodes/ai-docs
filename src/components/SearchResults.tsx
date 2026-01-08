@@ -1,14 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useStore } from '@nanostores/react';
 import { actions } from 'astro:actions';
 import { Search, Sparkles, AlertCircle, FileText } from 'lucide-react';
 import { embedQuery } from '@/scripts/ai-embeddings';
 import { PostItem } from './PostItem';
 import { SearchResultSkeleton } from './SearchResultSkeleton';
-import {
-  SearchFilters,
-  defaultFilters,
-  type SearchFiltersState,
-} from './SearchFilters';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -19,6 +15,7 @@ import {
   finishSearch,
   setSearchError,
   resetSearch,
+  $searchFilters,
   type SearchResult,
   type SearchPhase,
 } from '@/store/search-store';
@@ -29,103 +26,102 @@ interface SearchResultsProps {
 }
 
 function SearchResults({ query, className }: SearchResultsProps) {
+  const filters = useStore($searchFilters);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [phase, setPhase] = useState<SearchPhase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [progressInfo, setProgressInfo] = useState<string>('');
-  const [filters, setFilters] = useState<SearchFiltersState>(defaultFilters);
 
-  const performSearch = useCallback(
-    async (searchQuery: string, searchFilters: SearchFiltersState) => {
-      if (!searchQuery.trim()) {
-        setResults([]);
-        setPhase('idle');
-        resetSearch();
-        return;
+  const performSearch = useCallback(async (searchQuery: string) => {
+    if (!searchQuery.trim()) {
+      setResults([]);
+      setPhase('idle');
+      resetSearch();
+      return;
+    }
+
+    const currentFilters = $searchFilters.get();
+
+    setError(null);
+    setPhase('generating-embedding');
+    setProgressInfo('Generando embedding de la búsqueda...');
+
+    // Update global store - notifies GlobalHeader
+    startSearch(searchQuery);
+
+    try {
+      // 1) Generar embedding de la query
+      setGeneratingEmbedding();
+
+      const queryEmbedding = await embedQuery({
+        query: searchQuery,
+        onProgress: (p: any) => {
+          // Formato del servidor: { phase, label, percent }
+          if (p?.phase === 'running') {
+            setProgressInfo(p.label || 'Generando embedding...');
+            setSearchProgress({
+              label: p.label || 'Generando embedding...',
+              percent: p.percent || null,
+            });
+          } else if (p?.phase === 'cached') {
+            setProgressInfo('Desde cache');
+          }
+        },
+      });
+
+      // 2) Realizar búsqueda semántica con filtros
+      setPhase('searching');
+      setProgressInfo('Buscando documentos similares...');
+      setSearchingPhase();
+
+      // Preparar filtros para la API
+      const apiFilters = {
+        tagSlugs:
+          currentFilters.tagSlugs.length > 0
+            ? currentFilters.tagSlugs
+            : undefined,
+        dateFrom: currentFilters.dateFrom || undefined,
+        dateTo: currentFilters.dateTo || undefined,
+        minSimilarity:
+          currentFilters.minSimilarity > 0
+            ? currentFilters.minSimilarity
+            : undefined,
+      };
+
+      const result = await actions.documents.semanticSearch({
+        queryEmbedding,
+        limit: 15,
+        filters: apiFilters,
+      });
+
+      if (result.error) {
+        throw new Error(result.error.message || 'Error en la búsqueda');
       }
 
-      setError(null);
-      setPhase('generating-embedding');
-      setProgressInfo('Generando embedding de la búsqueda...');
+      const mappedResults = result.data.map((r) => ({
+        ...r,
+        createdAt: new Date(r.createdAt),
+      }));
 
-      // Update global store - notifies GlobalHeader
-      startSearch(searchQuery);
+      setResults(mappedResults);
+      setPhase('done');
 
-      try {
-        // 1) Generar embedding de la query
-        setGeneratingEmbedding();
-
-        const queryEmbedding = await embedQuery({
-          query: searchQuery,
-          onProgress: (p: any) => {
-            // Formato del servidor: { phase, label, percent }
-            if (p?.phase === 'running') {
-              setProgressInfo(p.label || 'Generando embedding...');
-              setSearchProgress({
-                label: p.label || 'Generando embedding...',
-                percent: p.percent || null,
-              });
-            } else if (p?.phase === 'cached') {
-              setProgressInfo('Desde cache');
-            }
-          },
-        });
-
-        // 2) Realizar búsqueda semántica con filtros
-        setPhase('searching');
-        setProgressInfo('Buscando documentos similares...');
-        setSearchingPhase();
-
-        // Preparar filtros para la API
-        const apiFilters = {
-          tagSlugs:
-            searchFilters.tagSlugs.length > 0
-              ? searchFilters.tagSlugs
-              : undefined,
-          dateFrom: searchFilters.dateFrom || undefined,
-          dateTo: searchFilters.dateTo || undefined,
-          minSimilarity:
-            searchFilters.minSimilarity > 0
-              ? searchFilters.minSimilarity
-              : undefined,
-        };
-
-        const result = await actions.documents.semanticSearch({
-          queryEmbedding,
-          limit: 15,
-          filters: apiFilters,
-        });
-
-        if (result.error) {
-          throw new Error(result.error.message || 'Error en la búsqueda');
-        }
-
-        const mappedResults = result.data.map((r) => ({
-          ...r,
-          createdAt: new Date(r.createdAt),
-        }));
-
-        setResults(mappedResults);
-        setPhase('done');
-
-        // Update global store with results
-        finishSearch(mappedResults);
-      } catch (err) {
-        console.error('Search error:', err);
-        const errorMessage =
-          err instanceof Error ? err.message : 'Error desconocido';
-        setError(errorMessage);
-        setPhase('error');
-        setSearchError(errorMessage);
-      }
-    },
-    [],
-  );
+      // Update global store with results
+      finishSearch(mappedResults);
+    } catch (err) {
+      console.error('Search error:', err);
+      const errorMessage =
+        err instanceof Error ? err.message : 'Error desconocido';
+      setError(errorMessage);
+      setPhase('error');
+      setSearchError(errorMessage);
+    }
+  }, []);
 
   // Buscar cuando cambia la query
   useEffect(() => {
     if (query) {
-      performSearch(query, filters);
+      performSearch(query);
     }
 
     // Cleanup on unmount
@@ -134,16 +130,12 @@ function SearchResults({ query, className }: SearchResultsProps) {
     };
   }, [query, performSearch]);
 
-  // Buscar de nuevo cuando cambian los filtros (solo si ya hay query)
-  const handleFiltersChange = useCallback(
-    (newFilters: SearchFiltersState) => {
-      setFilters(newFilters);
-      if (query && phase === 'done') {
-        performSearch(query, newFilters);
-      }
-    },
-    [query, phase, performSearch],
-  );
+  // Buscar de nuevo cuando cambian los filtros (solo si ya hay query y búsqueda completada)
+  useEffect(() => {
+    if (query && phase === 'done') {
+      performSearch(query);
+    }
+  }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isLoading = phase === 'generating-embedding' || phase === 'searching';
 
@@ -161,9 +153,7 @@ function SearchResults({ query, className }: SearchResultsProps) {
         </div>
         <h3 className='text-lg font-semibold mb-2'>Error en la búsqueda</h3>
         <p className='text-muted-foreground mb-6 max-w-sm'>{error}</p>
-        <Button onClick={() => performSearch(query, filters)}>
-          Reintentar
-        </Button>
+        <Button onClick={() => performSearch(query)}>Reintentar</Button>
       </div>
     );
   }
@@ -225,13 +215,6 @@ function SearchResults({ query, className }: SearchResultsProps) {
   if (results.length === 0 && phase === 'done') {
     return (
       <div className={className}>
-        {/* Filters - show even with no results */}
-        <SearchFilters
-          filters={filters}
-          onFiltersChange={handleFiltersChange}
-          className='mb-6'
-        />
-
         <div className='flex flex-col items-center justify-center py-16 text-center'>
           <div className='size-16 rounded-full bg-muted flex items-center justify-center mb-4'>
             <FileText size={32} className='text-muted-foreground' />
@@ -240,7 +223,8 @@ function SearchResults({ query, className }: SearchResultsProps) {
           <p className='text-muted-foreground max-w-sm'>
             No se encontraron posts similares a "{query}".
             <br />
-            Intenta con otras palabras o ajusta los filtros.
+            Intenta con otras palabras o ajusta los filtros en la barra
+            superior.
           </p>
         </div>
       </div>
@@ -250,13 +234,6 @@ function SearchResults({ query, className }: SearchResultsProps) {
   // Results list
   return (
     <div className={className}>
-      {/* Filters */}
-      <SearchFilters
-        filters={filters}
-        onFiltersChange={handleFiltersChange}
-        className='mb-6'
-      />
-
       {/* Results info */}
       <div className='flex items-center gap-2 mb-4 text-sm text-muted-foreground'>
         <Sparkles size={14} className='text-primary' />

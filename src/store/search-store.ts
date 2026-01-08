@@ -40,6 +40,24 @@ export interface SearchState {
 }
 
 // ============================================================================
+// Filters Types
+// ============================================================================
+
+export interface SearchFiltersState {
+  tagSlugs: string[];
+  dateFrom: string; // ISO date string YYYY-MM-DD
+  dateTo: string;
+  minSimilarity: number;
+}
+
+export const defaultFilters: SearchFiltersState = {
+  tagSlugs: [],
+  dateFrom: '',
+  dateTo: '',
+  minSimilarity: 0,
+};
+
+// ============================================================================
 // Atoms
 // ============================================================================
 
@@ -48,6 +66,9 @@ export const $searchPhase = atom<SearchPhase>('idle');
 
 /** Query actual de búsqueda */
 export const $searchQuery = atom<string>('');
+
+/** Filtros de búsqueda */
+export const $searchFilters = atom<SearchFiltersState>(defaultFilters);
 
 /** Resultados de la búsqueda */
 export const $searchResults = atom<SearchResult[]>([]);
@@ -167,4 +188,18 @@ export function clearSearchResults() {
   $searchPhase.set('idle');
   $searchError.set(null);
   $searchProgress.set(null);
+}
+
+/**
+ * Actualiza los filtros de búsqueda.
+ */
+export function setSearchFilters(filters: SearchFiltersState) {
+  $searchFilters.set(filters);
+}
+
+/**
+ * Resetea los filtros a valores por defecto.
+ */
+export function resetSearchFilters() {
+  $searchFilters.set(defaultFilters);
 }
